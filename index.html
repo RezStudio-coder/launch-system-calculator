@@ -1,0 +1,785 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>The Launch System Roadmap — Rez 3D</title>
+
+<!-- Brand font, matching acquisition.com: Poppins for everything, hierarchy via weight -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+
+<!-- React + ReactDOM (UMD, no build step) -->
+<script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<!-- Babel standalone: transpiles the JSX below live in the browser -->
+<script src="https://unpkg.com/@babel/standalone@7/babel.min.js"></script>
+<!-- jsPDF (UMD global: window.jspdf.jsPDF) -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+<style>
+  html, body { margin: 0; padding: 0; }
+</style>
+</head>
+<body>
+
+<div id="presell-blueprint-root"></div>
+
+<script type="text/babel" data-presets="react">
+
+const { useState, useMemo, useRef } = React;
+
+// ============================================================
+// REZ 3D — The Launch System Roadmap
+// Interactive lead tool: questionnaire -> tailored numbers -> branded PDF
+// ============================================================
+
+// Name shown on the roadmap section. Change this one line to rename it.
+const ROADMAP_NAME = "The Launch System for New Developments";
+
+// Web3Forms access key — every submission emails the lead's answers here.
+// Get/rotate a key at https://web3forms.com
+const WEB3FORMS_ACCESS_KEY = "8a5af797-e84f-4013-97dc-34a81bfbf135";
+
+// Fires a lead notification email via Web3Forms. Fire-and-forget: never blocks the UI
+// and never surfaces an error to the visitor if the request fails.
+function notifyLead(f, calc) {
+  try {
+    fetch("https://api.web3forms.com/submit", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Accept: "application/json" },
+      body: JSON.stringify({
+        access_key: WEB3FORMS_ACCESS_KEY,
+        subject: `New Launch System Roadmap lead: ${f.company || f.name}`,
+        from_name: "Launch System Roadmap Tool",
+        "Name": f.name,
+        "Company": f.company,
+        "Email": f.email || "(not provided)",
+        "Project type": f.ptype,
+        "City / market": f.city || "(not provided)",
+        "Units": f.units,
+        [calc.isRental ? "Rent / unit / mo" : "Price / unit"]: f.price,
+        "Opening month": f.opening,
+        "Already pre-sold / leased %": f.presold || "0",
+        "— Calculated —": "—",
+        "Total value at stake": money(calc.gross),
+        "Runway to opening (months)": calc.noRunway ? "0 or past" : calc.runway,
+        "Realistic target %": Math.round(calc.target * 100) + "%",
+        "Units still needed": calc.needUnits,
+        "Monthly cost of doing nothing": money(calc.emptyCostMo),
+      }),
+    }).catch((e) => console.error("Lead notification failed:", e));
+  } catch (e) {
+    console.error("Lead notification failed:", e);
+  }
+}
+
+// Matches rez3drenders.ca: black/white monochrome, no color accent —
+// hierarchy comes from weight, tracking and grayscale contrast, not hue.
+const BRAND = {
+  ink: "#111111",        // near-black — matches the site's dark section background
+  ink2: "#333333",       // dark grey — secondary text, labels
+  paper: "#F3F3F3",      // light grey — page background, matches the site's light sections
+  line: "#DDDDDD",       // hairline borders
+  accent: "#111111",     // near-black — primary CTA / emphasis (site has no color accent)
+  accentDeep: "#333333", // hover state
+  onDark: "#FFFFFF",     // white — text/fills on dark (ink) backgrounds
+  onDarkMuted: "#CCCCCC",// light grey — secondary text on dark backgrounds
+  muted: "#707070",      // mid grey — muted body text
+};
+
+const PHASES = [
+  {
+    phase: "Phase 1",
+    title: "Creative Foundation",
+    tagline: "Make the project sellable before it exists",
+    steps: [
+      { n: "01", t: "Renders that look like photos", d: "See the building a year before it's built." },
+      { n: "02", t: "A showreel that sells the space", d: "A short walkthrough video for launch and social." },
+      { n: "03", t: "VR tours and 3D floor plans", d: "Buyers explore units and plans instantly." },
+    ],
+  },
+  {
+    phase: "Phase 2",
+    title: "Launch System",
+    tagline: "Turn that demand into a qualified waitlist",
+    steps: [
+      { n: "04", t: "A website built to capture leads", d: "Bilingual, SEO-ready, and built to capture every visitor as a lead." },
+      { n: "05", t: "A plan selector that qualifies buyers", d: "Buyers browse units and pricing live — only serious leads reach your team." },
+      { n: "06", t: "A presentation office that closes", d: "Signage and materials that turn visits into deposits." },
+    ],
+  },
+  {
+    phase: "Phase 3",
+    title: "Social Push",
+    tagline: "Get the project in front of the right buyers",
+    steps: [
+      { n: "07", t: "Launch content built from your renders", d: "Photo and video content cut from your renders — ready to post." },
+      { n: "08", t: "A posting playbook you can run", d: "A simple posting plan and caption library you run in-house." },
+      { n: "09", t: "Content that feeds the waitlist", d: "Every post drives traffic back to your site as leads." },
+    ],
+  },
+];
+
+function money(n) {
+  if (!isFinite(n) || n <= 0) return "—";
+  if (n >= 1_000_000) return "$" + (n / 1_000_000).toFixed(n >= 10_000_000 ? 0 : 1) + "M";
+  if (n >= 1_000) return "$" + Math.round(n / 1000) + "K";
+  return "$" + Math.round(n).toLocaleString();
+}
+function monthsUntil(dateStr) {
+  if (!dateStr) return 0;
+  const now = new Date();
+  const target = new Date(dateStr + "-01");
+  const m = (target.getFullYear() - now.getFullYear()) * 12 + (target.getMonth() - now.getMonth());
+  return Math.max(0, m);
+}
+
+// Loads an image and crops it to targetW x targetH (like CSS object-fit: cover),
+// returning a JPEG data URL usable with jsPDF's addImage. focusY (0-1) biases the crop
+// vertically — 0.5 is centered, higher values keep more of the bottom of the image
+// (useful for building renders where the entrance/signage sits low in the frame).
+function loadCoverImage(src, targetW, targetH, focusY) {
+  focusY = focusY === undefined ? 0.5 : focusY;
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => {
+      const scale = Math.max(targetW / img.naturalWidth, targetH / img.naturalHeight);
+      const sw = targetW / scale, sh = targetH / scale;
+      const sx = (img.naturalWidth - sw) / 2, sy = (img.naturalHeight - sh) * focusY;
+      const canvas = document.createElement("canvas");
+      canvas.width = targetW; canvas.height = targetH;
+      canvas.getContext("2d").drawImage(img, sx, sy, sw, sh, 0, 0, targetW, targetH);
+      resolve(canvas.toDataURL("image/jpeg", 0.85));
+    };
+    img.onerror = reject;
+    img.src = src;
+  });
+}
+
+// Fetches the actual Poppins TTF (same font used on-page throughout, matching
+// acquisition.com's brand) and registers it with a jsPDF doc instance in both
+// regular and bold weights, so the whole PDF matches the site's font instead of
+// falling back to jsPDF's built-in Helvetica/Times. Cached across calls in-session.
+const POPPINS_TTF = {
+  normal: "https://fonts.gstatic.com/s/poppins/v24/pxiEyp8kv8JHgFVrFJA.ttf",
+  bold: "https://fonts.gstatic.com/s/poppins/v24/pxiByp8kv8JHgFVrLCz7V1s.ttf",
+};
+const poppinsFontCache = {};
+async function fetchAsBase64(url) {
+  const res = await fetch(url);
+  const bytes = new Uint8Array(await res.arrayBuffer());
+  let binary = "";
+  for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
+  return btoa(binary);
+}
+async function ensurePoppinsFont(doc) {
+  for (const style of ["normal", "bold"]) {
+    if (!poppinsFontCache[style]) poppinsFontCache[style] = await fetchAsBase64(POPPINS_TTF[style]);
+    doc.addFileToVFS(`Poppins-${style}.ttf`, poppinsFontCache[style]);
+    doc.addFont(`Poppins-${style}.ttf`, "Poppins", style);
+  }
+}
+
+function App() {
+  const [step, setStep] = useState(0); // 0 = form, 1 = results
+  const [f, setF] = useState({
+    name: "", company: "", email: "",
+    ptype: "Rental (multifamily)", units: "", price: "", opening: "", presold: "", city: "",
+  });
+  const set = (k) => (e) => setF({ ...f, [k]: e.target.value });
+
+  const calc = useMemo(() => {
+    const units = parseFloat(f.units) || 0;
+    const price = parseFloat(f.price) || 0; // condo: price/unit · rental: rent/unit/mo
+    const presold = parseFloat(f.presold) || 0;
+    const isRental = f.ptype.includes("Rental");
+
+    // ---- Headline "value at stake" ----
+    // Rental  -> annual rent roll (rent × units × 12). No multiplier, no assumptions.
+    // Condo   -> total sell-out value (price × units).
+    const rentRoll = price * units * 12;
+    const gross = isRental ? rentRoll : price * units;
+    const grossBasis = isRental
+      ? "Annual rent roll (rent × units × 12)"
+      : "Total sellout value (price × units)";
+
+    const runway = monthsUntil(f.opening);
+    const alreadyUnits = Math.round(units * (presold / 100));
+
+    // ---- Realistic pace: Slow / Steady / Hot ----
+    // Base rates are calibrated to a ~60-unit project, grounded in 2025 market data:
+    //   For-sale: slow big-city averages ~1/mo, healthy norm ~3/mo, hot projects ~6/mo.
+    //   Rental:   lease-up is faster — ~8 / 15 / 22 per month (≈100-unit building in 4–5 mo at the top).
+    // Larger projects absorb somewhat faster (more marketing reach, more unit variety), but not
+    // linearly — scale by sqrt(units/60), clamped to a sane band so a 12-unit build stays realistic
+    // and a 300-unit tower doesn't blow up. Computed before the target so the target itself can be
+    // grounded in what's actually achievable at a steady pace, not just an industry rule of thumb.
+    const baseRates = isRental ? { slow: 8, steady: 15, hot: 22 } : { slow: 1, steady: 3, hot: 6 };
+    const sizeFactor = units > 0 ? Math.min(2, Math.max(0.6, Math.sqrt(units / 60))) : 1;
+    const rate = (r) => Math.max(1, Math.round(r * sizeFactor));
+    const steadyRate = rate(baseRates.steady);
+
+    // ---- Pre-sell target ----
+    // benchmarkTarget is the industry rule of thumb (50% pre-lease · 30% pre-sale). The actual
+    // target used everywhere below is capped by what's realistically achievable at a steady pace
+    // over the runway that's actually left — so a project with 2 months to opening isn't handed
+    // the same 30% goal as one with 12 months.
+    const benchmarkTarget = isRental ? 0.5 : 0.3;
+    const achievableUnits = units > 0 ? Math.min(units, alreadyUnits + steadyRate * Math.max(0, runway)) : 0;
+    const achievablePct = units > 0 ? achievableUnits / units : 0;
+    const target = Math.min(benchmarkTarget, achievablePct);
+    const targetUnits = Math.ceil(units * target);
+    const needUnits = Math.max(0, targetUnits - alreadyUnits);
+
+    // Value secured at target (uses the headline basis, annualized rent for rentals)
+    const perUnitValue = isRental ? price * 12 : price;
+    const securedAtTarget = targetUnits * perUnitValue;
+
+    // ---- Runway guardrail ----
+    // <3 months = window effectively closed; don't show a fantasy pace.
+    const windowClosed = runway > 0 && runway < 3;
+    const noRunway = runway <= 0;
+    const perMonthNeeded = runway > 0 ? Math.ceil(needUnits / runway) : needUnits;
+    // How far the realistic target falls short of the industry benchmark — the tell that the
+    // runway itself, not effort, is the constraint.
+    const shortOfBenchmark = benchmarkTarget - target > 0.01;
+
+    const scenarios = [
+      { key: "Slow", rate: rate(baseRates.slow), note: "soft market" },
+      { key: "Steady", rate: steadyRate, note: "healthy market" },
+      { key: "Hot", rate: rate(baseRates.hot), note: "high demand" },
+    ].map((s) => ({ ...s, months: needUnits > 0 ? Math.ceil(needUnits / s.rate) : 0 }));
+
+    // Carrying cost while unsold (rental: lost rent · condo: ~0.6%/mo financing drag)
+    const emptyCostMo = isRental ? units * price : (price * units) * 0.006;
+
+    return {
+      units, price, presold, isRental,
+      gross, grossBasis, rentRoll,
+      runway, target, benchmarkTarget, shortOfBenchmark, targetUnits, alreadyUnits, needUnits, securedAtTarget,
+      perMonthNeeded, windowClosed, noRunway, scenarios, emptyCostMo, perUnitValue,
+    };
+  }, [f]);
+
+  const ready = f.name && f.company && f.units && f.price && f.opening;
+
+  return (
+    <div style={{ minHeight: "100vh", background: BRAND.paper, color: BRAND.ink, fontFamily: "'Poppins', Arial, sans-serif" }}>
+      <style>{`
+        * { box-sizing: border-box; }
+        .wrap { max-width: 920px; margin: 0 auto; padding: 32px 20px 80px; }
+        .eyebrow { font-family: 'Poppins', Arial, sans-serif; letter-spacing: .2em; text-transform: uppercase; font-size: 12px; color: ${BRAND.muted}; font-weight: 600; }
+        .h1 { font-family: 'Poppins', Arial, sans-serif; text-transform: uppercase; font-size: clamp(28px, 4.6vw, 46px); line-height: 1.1; letter-spacing: -.01em; margin: 10px 0 8px; font-weight: 800; }
+        .sub { font-family: 'Poppins', Arial, sans-serif; color: ${BRAND.muted}; font-size: 15px; max-width: 560px; line-height: 1.5; }
+        .card { background: #fff; border: 1px solid ${BRAND.line}; border-radius: 4px; padding: 26px; }
+        label { display:block; font-family:'Poppins',Arial,sans-serif; font-size:12px; letter-spacing:.06em; text-transform:uppercase; color:${BRAND.ink2}; font-weight:700; margin-bottom:6px; }
+        input, select { width:100%; padding:12px 14px; border:1px solid ${BRAND.line}; border-radius:3px; font-size:15px; font-family:'Poppins',Arial,sans-serif; background:#fff; color:${BRAND.ink}; }
+        input:focus, select:focus { outline:2px solid ${BRAND.ink}; outline-offset:0; border-color:${BRAND.ink}; }
+        .grid2 { display:grid; grid-template-columns:repeat(auto-fit, minmax(150px, 1fr)); gap:12px; }
+        .grid3 { display:grid; grid-template-columns:repeat(auto-fit, minmax(150px, 1fr)); gap:12px; }
+        .ppFrame { width:100%; height:650px; border:none; display:block; }
+        @media(max-width:640px){ .ppFrame{ height:1000px; } }
+        .btn { font-family:'Poppins',Arial,sans-serif; font-weight:700; letter-spacing:.04em; text-transform: uppercase; border:none; border-radius:3px; padding:15px 26px; font-size:13px; cursor:pointer; transition: background .15s ease, color .15s ease; }
+        .btnPrimary { background:${BRAND.ink}; color:#fff; }
+        .btnPrimary:hover { background:${BRAND.accentDeep}; }
+        .btnGhost { background:transparent; color:${BRAND.ink}; border:1px solid ${BRAND.ink}; }
+        .btnGhost:hover { background:${BRAND.ink}; color:#fff; }
+        .stat { background:#fff; border:1px solid ${BRAND.line}; border-radius:4px; padding:20px; overflow:hidden; }
+        .statN { font-family:'Poppins', Arial, sans-serif; font-size:clamp(20px, 5.5vw, 30px); font-weight:700; color:${BRAND.ink}; line-height:1.1; white-space:nowrap; }
+        .statL { font-family:'Poppins',Arial,sans-serif; font-size:11px; letter-spacing:.08em; text-transform:uppercase; color:${BRAND.muted}; margin-top:8px; font-weight:600; }
+        .stageRow { display:flex; gap:18px; padding:18px 0; border-top:1px solid ${BRAND.line}; }
+        .stageN { font-family:'Poppins',Arial,sans-serif; font-weight:800; color:${BRAND.ink}; font-size:15px; min-width:34px; }
+        .stageT { font-family:'Poppins', Arial, sans-serif; font-size:19px; font-weight:700; margin:0 0 4px; }
+        .stageD { font-family:'Poppins',Arial,sans-serif; font-size:14px; color:${BRAND.muted}; line-height:1.5; margin:0; }
+        .planpoint { background:${BRAND.ink}; color:${BRAND.onDark}; border-radius:5px; padding:30px; margin-top:30px; }
+        .ppTag { font-family:'Poppins',Arial,sans-serif; letter-spacing:.24em; text-transform:uppercase; font-size:10px; color:${BRAND.onDarkMuted}; font-weight:700; }
+      `}</style>
+
+      <div style={{ background: "#fff", padding: "26px 20px", textAlign: "center", borderTop: `2px solid ${BRAND.ink}`, borderBottom: `2px solid ${BRAND.ink}` }}>
+        <div style={{ maxWidth: 760, margin: "0 auto", fontFamily: "'Poppins', Arial, sans-serif", fontWeight: 800, fontSize: "clamp(20px, 3.2vw, 32px)", lineHeight: 1.3, color: BRAND.ink }}>
+          Get Your Free Personalized Launch System Roadmap<br />
+          ...in Under 30 Seconds.
+        </div>
+      </div>
+
+      <div style={{ position: "relative" }}>
+        <img
+          src="./02.jpg"
+          alt="2500 The Monte — rendered by Rez 3D"
+          style={{ width: "100%", height: "clamp(400px, 58vw, 680px)", objectFit: "cover", objectPosition: "center 55%", display: "block" }}
+        />
+        <div style={{ position: "absolute", left: 0, right: 0, bottom: 0, padding: "40px 0 22px", background: "linear-gradient(to top, rgba(0,0,0,0.72), rgba(0,0,0,0))" }}>
+          <div style={{ maxWidth: 920, margin: "0 auto", padding: "0 20px" }}>
+            <span style={{ fontFamily: "'Poppins', Arial, sans-serif", textTransform: "uppercase", fontSize: "clamp(30px, 6.5vw, 56px)", fontWeight: 800, color: "#fff", letterSpacing: "-.01em", textShadow: "0 2px 10px rgba(0,0,0,0.55)" }}>
+              70% Pre-Leased Before Opening
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <div className="wrap">
+        <div className="eyebrow">Rez 3D · Developer Tool</div>
+        <h1 className="h1">The Launch System Roadmap</h1>
+        <p className="sub">Answer six quick questions. Get a pre-sell model built for your project: your value at stake, your target, and the pace you need to hit it before opening day.</p>
+
+        {step === 0 && (
+          <div className="card" style={{ marginTop: 26 }}>
+            <div className="grid3" style={{ marginBottom: 16 }}>
+              <div><label>Your name</label><input value={f.name} onChange={set("name")} placeholder="Jordan Smith" /></div>
+              <div><label>Company</label><input value={f.company} onChange={set("company")} placeholder="Developments Inc." /></div>
+              <div><label>Email</label><input value={f.email} onChange={set("email")} placeholder="you@company.com" /></div>
+            </div>
+            <div className="grid2" style={{ marginBottom: 16 }}>
+              <div>
+                <label>Project type</label>
+                <select value={f.ptype} onChange={set("ptype")}>
+                  <option>Condo (for sale)</option>
+                  <option>Rental (multifamily)</option>
+                  <option>Mixed-use</option>
+                </select>
+              </div>
+              <div><label>City / market</label><input value={f.city} onChange={set("city")} placeholder="City, Province" /></div>
+            </div>
+            <div className="grid3" style={{ marginBottom: 16 }}>
+              <div><label>Number of units</label><input value={f.units} onChange={set("units")} inputMode="numeric" placeholder="60" /></div>
+              <div>
+                <label>{calc.isRental ? "Rent / unit / mo" : "Price / unit"}</label>
+                <input value={f.price} onChange={set("price")} inputMode="numeric" placeholder={calc.isRental ? "1900" : "425000"} />
+              </div>
+              <div><label>Opening (month)</label><input value={f.opening} onChange={set("opening")} type="month" /></div>
+            </div>
+            <div className="grid2">
+              <div><label>Already pre-sold / leased (%)</label><input value={f.presold} onChange={set("presold")} inputMode="numeric" placeholder="0" /></div>
+            </div>
+            <div style={{ marginTop: 24, display: "flex", gap: 12, alignItems: "center" }}>
+              <button className="btn btnPrimary" disabled={!ready} style={{ opacity: ready ? 1 : 0.45, cursor: ready ? "pointer" : "not-allowed" }} onClick={() => { notifyLead(f, calc); setStep(1); }}>
+                Build my Launch System →
+              </button>
+              <span style={{ fontFamily: "'Poppins',Arial,sans-serif", fontSize: 12, color: BRAND.muted }}>Takes 30 seconds. No obligation.</span>
+            </div>
+          </div>
+        )}
+
+        {step === 1 && <Results f={f} calc={calc} onBack={() => setStep(0)} />}
+      </div>
+    </div>
+  );
+}
+
+function Results({ f, calc, onBack }) {
+  const [pdfState, setPdfState] = useState("idle");
+  const label = calc.isRental ? "pre-leased" : "pre-sold";
+  const targetPct = Math.round(calc.target * 100);
+  const benchmarkPct = Math.round(calc.benchmarkTarget * 100);
+
+  // Traffic-light urgency read on the runway. The realistic target is already capped by
+  // what a steady pace can achieve in the time left, so "steady meets target" is true by
+  // construction — that can't be the signal. The real tell is whether the runway is short
+  // enough to force the target below the industry benchmark at all:
+  //   red    = window is effectively closed (<3 months, or none left)
+  //   yellow = window's open, but runway is already capping you below the benchmark
+  //   green  = plenty of runway to hit the full industry-benchmark target
+  const urgency = calc.needUnits === 0
+    ? "green"
+    : (calc.windowClosed || calc.noRunway)
+      ? "red"
+      : calc.shortOfBenchmark
+        ? "yellow"
+        : "green";
+  const URGENCY_STYLE = {
+    red: { border: "#B23A2E", bg: "#FBEEEC", heading: "#8C2C22", icon: "⚑", label: "Your pre-sell window has effectively closed." },
+    yellow: { border: "#B8860B", bg: "#FBF6E6", heading: "#8A660A", icon: "⚠", label: "Your runway is tight." },
+    green: { border: "#2F7D5B", bg: "#EBF6F0", heading: "#215C43", icon: "✓", label: "Your runway is healthy." },
+  }[urgency];
+
+  async function downloadPDF() {
+    setPdfState("working");
+    try {
+      const { jsPDF } = window.jspdf;
+      const doc = new jsPDF({ unit: "pt", format: "letter" });
+      const W = doc.internal.pageSize.getWidth();
+      const M = 54;
+      const hex = (h) => { const n = parseInt(h.slice(1), 16); return [n >> 16, (n >> 8) & 255, n & 255]; };
+      // Brand is monochrome (matches rez3drenders.ca): ink/muted/line for light backgrounds,
+      // onDark/onDarkMuted for text and fills placed on the ink-colored dark panels.
+      const ink = hex(BRAND.ink), muted = hex(BRAND.muted), line = hex(BRAND.line), paperFill = hex(BRAND.paper);
+      const onDark = hex(BRAND.onDark), onDarkMuted = hex(BRAND.onDarkMuted);
+      const faint = [170, 170, 170];
+
+      try { await ensurePoppinsFont(doc); } catch (e) { /* falls back to jsPDF's built-in Helvetica */ }
+
+      // Content flows top-down on a single letter page (612 x 792pt) wherever it fits;
+      // the footer band is placed right after the roadmap and only spills to a second
+      // page if there genuinely isn't room, so this stays robust as content changes.
+      const PAGE_H = doc.internal.pageSize.getHeight();
+
+      // Hero render, cropped to a banner strip, with the pre-sold hook overlaid
+      const IMG_H = 130;
+      let heroDataUrl = null;
+      try { heroDataUrl = await loadCoverImage("./02.jpg", W * 2, IMG_H * 2, 0.55); } catch (e) { heroDataUrl = null; }
+      if (heroDataUrl) {
+        doc.addImage(heroDataUrl, "JPEG", 0, 0, W, IMG_H);
+        doc.setFillColor(0, 0, 0); doc.rect(0, IMG_H - 26, W, 26, "F");
+        doc.setTextColor(...onDark); doc.setFont("Poppins", "bold"); doc.setFontSize(13);
+        doc.text("70% PRE-LEASED BEFORE OPENING", M, IMG_H - 9);
+      }
+      const coverY = heroDataUrl ? IMG_H : 0;
+
+      // Cover band
+      doc.setFillColor(...ink); doc.rect(0, coverY, W, 80, "F");
+      doc.setTextColor(...onDark); doc.setFont("Poppins", "bold"); doc.setFontSize(8);
+      doc.text("REZ 3D · DEVELOPER TOOL", M, coverY + 24);
+      doc.setTextColor(...onDark); doc.setFont("Poppins", "bold"); doc.setFontSize(20);
+      doc.text("The Launch System Roadmap", M, coverY + 50);
+      doc.setFont("Poppins", "normal"); doc.setFontSize(8.5); doc.setTextColor(...onDarkMuted);
+      doc.text(`Prepared for ${f.name}${f.company ? " · " + f.company : ""}`, M, coverY + 68);
+
+      let y = coverY + 100;
+      doc.setTextColor(...ink); doc.setFont("Poppins", "bold"); doc.setFontSize(12);
+      doc.text(`Your project at a glance${f.city ? ", " + f.city : ""}`, M, y);
+      y += 8; doc.setDrawColor(...line); doc.line(M, y, W - M, y); y += 16;
+
+      const steady = calc.scenarios[1];
+      const paceLabel = calc.needUnits > 0 ? `${steady.months} mo at ${steady.rate}/mo` : "on track";
+      const stats = [
+        [money(calc.gross), calc.isRental ? "Annual rent roll" : "Total value at stake", calc.noRunway ? "already on the line" : `at stake, ${calc.runway} mo to secure`],
+        [`${calc.units} units`, "Project size", f.city || ""],
+        [calc.noRunway ? "—" : `${calc.runway} mo`, "Runway to opening", calc.noRunway ? "opening date has passed" : calc.runway <= 3 ? "not much time left" : "time to lock in demand"],
+        [`${targetPct}% ${label}`, "Recommended target", calc.shortOfBenchmark ? `realistic given runway, vs ${benchmarkPct}% benchmark` : "typical at opening"],
+        [`${calc.needUnits} units`, `Still needed to hit ${targetPct}%`, `${calc.targetUnits} target, ${calc.alreadyUnits} committed`],
+        [paceLabel, "Realistic pace to target", "healthy sales pace"],
+      ];
+      const cardH = 54, colGap = 10, rowGap = 8;
+      const colW = (W - M * 2 - colGap * 2) / 3;
+      stats.forEach((s, i) => {
+        const col = i % 3, row = Math.floor(i / 3);
+        const x = M + col * (colW + colGap), yy = y + row * (cardH + rowGap);
+        doc.setDrawColor(...line); doc.setFillColor(255, 255, 255); doc.roundedRect(x, yy, colW, cardH, 3, 3, "S");
+        doc.setTextColor(...ink); doc.setFont("Poppins", "bold"); doc.setFontSize(14); doc.text(String(s[0]), x + 10, yy + 20);
+        doc.setTextColor(...muted); doc.setFont("Poppins", "bold"); doc.setFontSize(6.5); doc.text(String(s[1]).toUpperCase(), x + 10, yy + 33, { maxWidth: colW - 18 });
+        if (s[2]) { doc.setFont("Poppins", "normal"); doc.setFontSize(6); doc.setTextColor(...faint); doc.text(String(s[2]), x + 10, yy + 45, { maxWidth: colW - 18 }); }
+      });
+      y += cardH * 2 + rowGap + 14;
+
+      // Guardrail note (if window closed) — one condensed line
+      if ((calc.windowClosed || calc.noRunway) && calc.needUnits > 0) {
+        doc.setFillColor(...paperFill); doc.setDrawColor(...ink); doc.roundedRect(M, y, W - M * 2, 32, 3, 3, "FD");
+        doc.setTextColor(...ink); doc.setFont("Poppins", "bold"); doc.setFontSize(7.5);
+        doc.text("PRE-SELL WINDOW CLOSED", M + 12, y + 13);
+        doc.setFont("Poppins", "normal"); doc.setFontSize(7.5);
+        doc.text("Systems need 6–12 months lead time — that's the window for your next project.", M + 12, y + 25);
+        y += 42;
+      }
+
+      // Insight line
+      doc.setFillColor(...paperFill); doc.setDrawColor(...ink); doc.roundedRect(M, y, W - M * 2, 38, 3, 3, "FD");
+      doc.setTextColor(...ink); doc.setFont("Poppins", "normal"); doc.setFontSize(9.5);
+      const secured = money(calc.securedAtTarget) + (calc.isRental ? " first year rent" : "");
+      const insight = `At ${targetPct}% ${label}, you secure ${secured} in commitments before opening,`;
+      const insight2 = `and cut roughly ${money(calc.emptyCostMo)}/mo in carrying cost on unsold units.`;
+      doc.text(insight, M + 12, y + 16); doc.text(insight2, M + 12, y + 29);
+      y += 50;
+
+      // Pace scenarios: Slow / Steady / Hot
+      if (calc.needUnits > 0) {
+        doc.setTextColor(...ink); doc.setFont("Poppins", "bold"); doc.setFontSize(8);
+        doc.text(`HOW LONG ${calc.needUnits} UNITS TAKES TO MOVE`, M, y);
+        y += 16;
+        const sc = calc.scenarios;
+        const scW = (W - M * 2 - colGap * 2) / 3;
+        const scH = 44;
+        sc.forEach((s, i) => {
+          const x = M + i * (scW + colGap);
+          const mid = i === 1;
+          doc.setFillColor(...(mid ? [232, 232, 232] : [255, 255, 255]));
+          doc.setDrawColor(...(mid ? ink : line));
+          doc.roundedRect(x, y, scW, scH, 3, 3, "FD");
+          doc.setTextColor(...(mid ? ink : muted)); doc.setFont("Poppins", "bold"); doc.setFontSize(7);
+          doc.text(s.key.toUpperCase(), x + 10, y + 13);
+          doc.setTextColor(...ink); doc.setFont("Poppins", "bold"); doc.setFontSize(14);
+          doc.text(`${s.months} mo`, x + 10, y + 29);
+          doc.setTextColor(...muted); doc.setFont("Poppins", "normal"); doc.setFontSize(6.5);
+          doc.text(`${s.rate} units/mo, ${s.note}`, x + 10, y + 39);
+        });
+        y += scH + 16;
+      }
+
+      // Roadmap — titles only, no descriptions, to keep this to one page
+      doc.setTextColor(...ink); doc.setFont("Poppins", "bold"); doc.setFontSize(12);
+      doc.text(ROADMAP_NAME, M, y); y += 6;
+      doc.setDrawColor(...line); doc.line(M, y, W - M, y); y += 16;
+
+      PHASES.forEach((ph) => {
+        doc.setTextColor(...ink); doc.setFont("Poppins", "bold"); doc.setFontSize(7.5);
+        const phaseLabel = ph.phase.toUpperCase() + ": " + ph.title.toUpperCase();
+        doc.text(phaseLabel, M, y);
+        const labelW = doc.getTextWidth(phaseLabel);
+        doc.setTextColor(...muted); doc.setFont("Poppins", "normal"); doc.setFontSize(7.5);
+        doc.text("— " + ph.tagline, M + labelW + 6, y);
+        y += 14;
+        ph.steps.forEach((s) => {
+          doc.setTextColor(...ink); doc.setFont("Poppins", "bold"); doc.setFontSize(8.5); doc.text(s.n, M, y);
+          doc.setFont("Poppins", "bold"); doc.setFontSize(9.5); doc.text(s.t, M + 22, y);
+          y += 13;
+        });
+        y += 6;
+      });
+
+      // Footer — flows right after the roadmap as a compact band when there's room.
+      // If it wouldn't fit, it becomes a proper full-bleed closing page instead of an
+      // awkward sliver at the top of an otherwise-empty page.
+      const COMPACT_FOOTER_H = 130;
+      y += 10;
+      const onOwnPage = y + COMPACT_FOOTER_H > PAGE_H - 30;
+      if (onOwnPage) { doc.addPage(); y = 0; }
+      const footerTop = y;
+      const footerH = onOwnPage ? PAGE_H : COMPACT_FOOTER_H;
+      doc.setFillColor(...ink); doc.rect(0, footerTop, W, footerH, "F");
+      let fy = footerTop + (onOwnPage ? 150 : 22);
+      doc.setTextColor(...onDark); doc.setFont("Poppins", "bold"); doc.setFontSize(onOwnPage ? 9 : 8);
+      doc.text("WHY REZ 3D", M, fy); fy += onOwnPage ? 26 : 18;
+      doc.setTextColor(...onDark); doc.setFont("Poppins", "bold"); doc.setFontSize(onOwnPage ? 22 : 14);
+      doc.text("We build what makes it sell.", M, fy); fy += onOwnPage ? 30 : 16;
+      doc.setTextColor(...onDarkMuted); doc.setFont("Poppins", "normal"); doc.setFontSize(onOwnPage ? 10.5 : 7.5);
+      const blurb = doc.splitTextToSize(
+        "Renders, launch website and plan selector that turn your project into a qualified waitlist before you break ground. We build the assets — we don't sell your units, so no commission and you keep full control of your sales and margins.",
+        onOwnPage ? W - M * 2 - 80 : W - M * 2
+      );
+      doc.text(blurb, M, fy); fy += blurb.length * (onOwnPage ? 15 : 10) + (onOwnPage ? 30 : 10);
+      doc.setTextColor(...onDark); doc.setFont("Poppins", "bold"); doc.setFontSize(onOwnPage ? 12 : 9);
+      doc.text("Reach out to scope your project - rez3drenders.ca", M, fy); fy += onOwnPage ? 18 : 13;
+      doc.setTextColor(...onDarkMuted); doc.setFont("Poppins", "normal"); doc.setFontSize(onOwnPage ? 8.5 : 7);
+      doc.text("Stephane LeBlanc · Rez 3D Renders Inc. · Powered by Planpoint", M, fy);
+
+      doc.save(`Launch-System-Roadmap-${(f.company || f.name).replace(/\s+/g, "-")}.pdf`);
+      setPdfState("done");
+    } catch (e) {
+      console.error(e);
+      setPdfState("error");
+    }
+  }
+
+  const steady = calc.scenarios[1];
+
+  return (
+    <div style={{ marginTop: 26 }}>
+
+      {/* ===================== SECTION 1: YOUR PROJECT OUTLOOK ===================== */}
+      <SectionLabel sub="Where this project stands today — and what waiting is costing you.">Your Project Outlook</SectionLabel>
+
+      <div className="grid3">
+        <Stat
+          n={`$${Math.round(calc.price).toLocaleString()}${calc.isRental ? "/mo" : ""}`}
+          l={calc.isRental ? "Rent / Unit / mo" : "Price / Unit"}
+          sub={`Across ${calc.units} unit${calc.units === 1 ? "" : "s"}`}
+        />
+        <Stat
+          n={calc.noRunway ? "—" : `${calc.runway} mo`}
+          l="Runway to Opening"
+          sub={calc.noRunway ? "Opening date has passed" : calc.runway <= 3 ? "Almost out of time" : "Time to lock in demand"}
+        />
+        {calc.isRental ? (
+          <Stat n={money(calc.gross)} l="Annual Rent Roll" sub={`${money(calc.emptyCostMo)}/mo × 12`} />
+        ) : (
+          <Stat n={money(calc.gross)} l="Total Value at Stake" sub={calc.grossBasis} />
+        )}
+      </div>
+
+      {/* Pain point: cost of doing nothing */}
+      <div style={{ background: "#fff", border: `2px solid ${BRAND.ink}`, borderRadius: 4, padding: 24, marginTop: 16 }}>
+        <div style={{ fontFamily: "'Poppins',Arial,sans-serif", fontSize: 11, fontWeight: 800, letterSpacing: ".1em", textTransform: "uppercase", color: BRAND.muted }}>
+          The cost of doing nothing
+        </div>
+        <div style={{ fontFamily: "'Poppins',Arial,sans-serif", fontWeight: 800, fontSize: 44, lineHeight: 1.15, color: BRAND.ink, margin: "6px 0 4px" }}>
+          {money(calc.emptyCostMo)}<span style={{ fontSize: 20, fontWeight: 700 }}>/mo</span>
+        </div>
+        <div style={{ fontFamily: "'Poppins',Arial,sans-serif", fontSize: 14.5, color: BRAND.ink2, lineHeight: 1.5 }}>
+          {calc.isRental ? "The rent you lose every month a unit sits empty instead of leased." : "What unsold inventory drags in financing cost every month it sits on the market."}
+        </div>
+      </div>
+
+      {/* Runway urgency — traffic-light read on how tight the window really is */}
+      <div style={{ background: URGENCY_STYLE.bg, border: `2px solid ${URGENCY_STYLE.border}`, borderRadius: 4, padding: 20, marginTop: 18, fontFamily: "'Poppins',Arial,sans-serif", fontSize: 14.5, lineHeight: 1.6, color: BRAND.ink }}>
+        <b style={{ color: URGENCY_STYLE.heading }}>{URGENCY_STYLE.icon} {URGENCY_STYLE.label}</b><br />
+        {urgency === "red" && (
+          calc.noRunway
+            ? <>Your opening date has passed — there's no runway left to pre-sell into. For your <i>next</i> project, start <b>6–12 months</b> out.</>
+            : calc.windowClosed
+              ? <>Only {calc.runway} mo left — a realistic pace only gets you to <b>{targetPct}% {label}</b>, short of the {benchmarkPct}% benchmark. Start the roadmap below today.</>
+              : <>Even a hot pace won't hit <b>{targetPct}% {label}</b> in {calc.runway} months — you're behind. Start the roadmap below today.</>
+        )}
+        {urgency === "yellow" && (
+          <>With {calc.runway} months left, a realistic pace caps you at <b>{targetPct}% {label}</b> — short of the {benchmarkPct}% benchmark. Start now before that gap grows.</>
+        )}
+        {urgency === "green" && (
+          calc.needUnits === 0
+            ? <>You're already at or above your <b>{targetPct}% {label}</b> target — the Launch System keeps that momentum going.</>
+            : <>A steady pace comfortably hits your <b>{targetPct}% {label}</b> target in {steady.months} mo, with room to spare. Start now to bank it early.</>
+        )}
+      </div>
+
+      {/* ===================== SECTION 2: YOUR TAILORED ROADMAP ===================== */}
+      <SectionLabel sub="What the Launch System gets you, step by step.">Your Tailored Roadmap</SectionLabel>
+
+      {calc.needUnits > 0 && (
+        <div style={{ background: "#F0F0F0", border: `2px solid ${BRAND.ink2}`, borderRadius: 4, padding: 22, fontFamily: "'Poppins',Arial,sans-serif", fontSize: 15.5, lineHeight: 1.6, color: BRAND.ink2 }}>
+          Average <b style={{ color: BRAND.ink }}>{steady.rate} units/mo</b> gets you to <b style={{ color: BRAND.ink }}>{targetPct}% {label}</b> in <b style={{ color: BRAND.ink }}>{steady.months} mo</b> — locking in <b style={{ color: BRAND.ink }}>{money(calc.securedAtTarget)}</b> before opening.
+        </div>
+      )}
+
+      <div className="grid2" style={{ marginTop: 16 }}>
+        <Stat n={`${targetPct}%`} l={`Recommended ${label} target`} sub={calc.shortOfBenchmark ? `vs ${benchmarkPct}% benchmark` : "Typical target at opening"} />
+        <Stat n={`${calc.needUnits}`} l={`Units still needed`} sub={`${calc.targetUnits} target, ${calc.alreadyUnits} committed`} />
+      </div>
+
+      {/* Realistic pace: Slow / Steady / Hot */}
+      {calc.needUnits > 0 && (
+        <div style={{ background: "#fff", border: `1px solid ${BRAND.line}`, borderRadius: 4, padding: 20, marginTop: 18 }}>
+          <div style={{ fontFamily: "'Poppins',Arial,sans-serif", fontSize: 12, letterSpacing: ".06em", textTransform: "uppercase", color: BRAND.ink2, fontWeight: 700, marginBottom: 14 }}>
+            How long {calc.needUnits} units takes to move
+          </div>
+          <div className="grid3">
+            {calc.scenarios.map((s, i) => (
+              <div key={s.key} style={{ textAlign: "center", padding: "14px 8px", background: i === 1 ? "#F0F0F0" : BRAND.paper, border: `${i === 1 ? 2 : 1}px solid ${i === 1 ? BRAND.ink2 : BRAND.line}`, borderRadius: 4 }}>
+                <div style={{ fontFamily: "'Poppins',Arial,sans-serif", fontSize: 11, fontWeight: 800, letterSpacing: ".1em", textTransform: "uppercase", color: i === 1 ? BRAND.ink : BRAND.muted }}>{s.key}</div>
+                <div style={{ fontFamily: "'Poppins', Arial, sans-serif", fontWeight: 800, fontSize: 28, margin: "6px 0 2px", color: BRAND.ink }}>{s.months} mo</div>
+                <div style={{ fontFamily: "'Poppins',Arial,sans-serif", fontSize: 12, color: BRAND.muted }}>{s.rate}/mo · {s.note}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <h2 style={{ fontSize: 24, fontWeight: 700, margin: "34px 0 6px", fontFamily: "'Poppins', Arial, sans-serif" }}>{ROADMAP_NAME}</h2>
+      <p style={{ fontFamily: "'Poppins',Arial,sans-serif", fontSize: 14, color: BRAND.muted, marginTop: 0, marginBottom: 20 }}>
+        Phase 1 opens the pipeline. Phase 2 converts it. Phase 3 keeps it fed.
+      </p>
+      {PHASES.map((ph) => (
+        <div key={ph.phase} style={{ marginBottom: 28 }}>
+          <div style={{ display: "flex", alignItems: "baseline", gap: 12, paddingBottom: 6, borderBottom: `2px solid ${BRAND.accent}`, marginBottom: 4 }}>
+            <span style={{ fontFamily: "'Poppins',Arial,sans-serif", fontSize: 11, fontWeight: 800, letterSpacing: ".16em", textTransform: "uppercase", color: BRAND.accentDeep }}>{ph.phase}</span>
+            <span style={{ fontSize: 19, fontWeight: 700, fontFamily: "'Poppins', Arial, sans-serif" }}>{ph.title}</span>
+            <span style={{ fontFamily: "'Poppins',Arial,sans-serif", fontSize: 13, color: BRAND.muted, fontStyle: "italic", marginLeft: "auto" }}>{ph.tagline}</span>
+          </div>
+          {ph.steps.map((s) => (
+            <div className="stageRow" key={s.n}>
+              <div className="stageN">{s.n}</div>
+              <div>
+                <p className="stageT">{s.t}</p>
+                <p className="stageD">{s.d}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      ))}
+
+      <div style={{ background: BRAND.ink, borderRadius: 4, padding: 30, marginTop: 8, marginBottom: 8, textAlign: "center" }}>
+        <div style={{ fontFamily: "'Poppins',Arial,sans-serif", fontSize: 21, fontWeight: 700, color: BRAND.onDark, marginBottom: 8 }}>
+          Ready to put this into action?
+        </div>
+        <div style={{ fontFamily: "'Poppins',Arial,sans-serif", fontSize: 14.5, color: BRAND.onDarkMuted, marginBottom: 22, maxWidth: 480, marginLeft: "auto", marginRight: "auto", lineHeight: 1.5 }}>
+          Renders, website, plan selector, and social — all built for your project.
+        </div>
+        <a
+          href="https://rez3drenders.ca/#00238626-d63c-42cc-b4be-d0ebe5192000"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="btn"
+          style={{ display: "inline-block", textDecoration: "none", background: BRAND.onDark, color: BRAND.ink }}
+        >
+          Contact Us →
+        </a>
+      </div>
+
+      <LeasingToolDemo />
+
+      <div className="planpoint">
+        <div className="ppTag">Why Rez 3D</div>
+        <h3 style={{ fontSize: 24, fontWeight: 700, margin: "10px 0 12px", fontFamily: "'Poppins', Arial, sans-serif" }}>We build what makes it sell</h3>
+        <p style={{ fontFamily: "'Poppins',Arial,sans-serif", fontSize: 15, lineHeight: 1.6, color: BRAND.onDarkMuted, margin: 0 }}>
+          We build the renders, launch system, and <b style={{ color: BRAND.onDark }}>plan selector</b> that turn demand into a qualified waitlist. No commission — you keep full control of your sales and margins.
+        </p>
+      </div>
+
+      <div style={{ display: "flex", gap: 12, marginTop: 26, flexWrap: "wrap" }}>
+        <button className="btn btnPrimary" onClick={downloadPDF}>
+          {pdfState === "working" ? "Generating…" : pdfState === "done" ? "Downloaded ✓ Download again" : "Download my tailored PDF"}
+        </button>
+        <button className="btn btnGhost" onClick={onBack}>← Edit my answers</button>
+      </div>
+      {pdfState === "error" && <p style={{ color: "#b23", fontFamily: "sans-serif", fontSize: 13, marginTop: 10 }}>PDF failed to build. Try again, or check the console.</p>}
+    </div>
+  );
+}
+
+function LeasingToolDemo() {
+  const DEMO_URL = "https://app.planpoint.io/g/PlanA/projet-vela?lang=en";
+
+  return (
+    <div style={{ marginTop: 40 }}>
+      <div style={{ textAlign: "center", marginBottom: 4 }}>
+        <span style={{ fontFamily: "'Poppins',Arial,sans-serif", fontSize: 16, letterSpacing: ".2em", textTransform: "uppercase", color: BRAND.accentDeep, fontWeight: 800 }}>
+          Step 05, demo project
+        </span>
+      </div>
+      <h2 style={{ fontSize: 24, fontWeight: 700, margin: "0 0 4px", textAlign: "center", fontFamily: "'Poppins', Arial, sans-serif" }}>This is what buyers see</h2>
+      <p style={{ fontFamily: "'Poppins',Arial,sans-serif", fontSize: 14, color: BRAND.muted, textAlign: "center", marginTop: 0, marginBottom: 18 }}>
+        Live interaction. Filter by bedroom, sort by price, click a unit.
+      </p>
+
+      <div style={{ border: `1px solid ${BRAND.line}`, borderRadius: 8, overflow: "hidden", background: "#fff", boxShadow: "0 8px 30px rgba(14,27,44,0.08)" }}>
+        {/* Browser chrome */}
+        <div style={{ background: BRAND.paper, borderBottom: `1px solid ${BRAND.line}`, padding: "10px 14px", display: "flex", alignItems: "center", gap: 8 }}>
+          <span style={{ width: 10, height: 10, borderRadius: "50%", background: "#E4715B" }} />
+          <span style={{ width: 10, height: 10, borderRadius: "50%", background: "#E7B14C" }} />
+          <span style={{ width: 10, height: 10, borderRadius: "50%", background: "#6DBE72" }} />
+          <span style={{ marginLeft: 10, fontFamily: "'Poppins',Arial,sans-serif", fontSize: 12, color: BRAND.muted, flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            Demo project
+          </span>
+        </div>
+
+        <iframe
+          src={DEMO_URL}
+          className="ppFrame"
+          title="Planpoint plan selector — demo project"
+          loading="lazy"
+        />
+
+        {/* Powered by note */}
+        <div style={{ borderTop: `1px solid ${BRAND.line}`, padding: "9px 14px", textAlign: "center", background: BRAND.paper }}>
+          <span style={{ fontFamily: "'Poppins',Arial,sans-serif", fontSize: 11, letterSpacing: ".04em", color: BRAND.muted }}>
+            Powered by Planpoint
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function SectionLabel({ children, sub }) {
+  return (
+    <div style={{ marginTop: 40, marginBottom: 16, paddingBottom: 10, borderBottom: `2px solid ${BRAND.ink}` }}>
+      <div style={{ fontFamily: "'Poppins',Arial,sans-serif", fontSize: 13, fontWeight: 800, letterSpacing: ".1em", textTransform: "uppercase", color: BRAND.ink }}>{children}</div>
+      {sub && <div style={{ fontFamily: "'Poppins',Arial,sans-serif", fontSize: 14, color: BRAND.muted, marginTop: 6 }}>{sub}</div>}
+    </div>
+  );
+}
+
+function Stat({ n, l, sub }) {
+  return (
+    <div className="stat">
+      <div className="statN">{n}</div>
+      <div className="statL">{l}</div>
+      {sub && <div style={{ fontFamily: "'Poppins',Arial,sans-serif", fontSize: 10.5, color: BRAND.muted, marginTop: 5, lineHeight: 1.35, opacity: 0.85 }}>{sub}</div>}
+    </div>
+  );
+}
+
+const root = ReactDOM.createRoot(document.getElementById("presell-blueprint-root"));
+root.render(<App />);
+
+</script>
+</body>
+</html>
