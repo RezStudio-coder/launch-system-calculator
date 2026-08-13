@@ -142,8 +142,9 @@ function monthsUntil(dateStr) {
   // not a clean 0 or 1 — rounding to whole months either overstates the runway or,
   // right at a month boundary, flags a still-upcoming opening as already passed.
   const days = (target - now) / 86400000;
-  const months = Math.round((days / 30.44) * 2) / 2;
-  return Math.max(0, months);
+  // Signed — callers derive both "runway left" (positive) and "time since opening"
+  // (negative) from the same number, instead of clamping the sign away here.
+  return Math.round((days / 30.44) * 2) / 2;
 }
 
 // Loads an image and crops it to targetW x targetH (like CSS object-fit: cover),
@@ -215,8 +216,14 @@ function App() {
       ? "Annual rent roll (rent × units × 12)"
       : "Total sellout value (price × units)";
 
-    const runway = monthsUntil(f.opening);
+    // monthsUntil is signed — split it into "runway left" and "time since opening"
+    // rather than losing the sign, since which one applies changes the whole model below.
+    const rawMonths = monthsUntil(f.opening);
+    const runway = Math.max(0, rawMonths);
+    const monthsSinceOpening = Math.max(0, -rawMonths);
+    const noRunway = runway <= 0;
     const alreadyUnits = Math.round(units * (presold / 100));
+    const vacantUnits = Math.max(0, units - alreadyUnits);
 
     // ---- Realistic pace: Slow / Steady / Hot ----
     // Base rates are calibrated to a ~60-unit project. Steady/Hot are intentionally trimmed
@@ -235,13 +242,25 @@ function App() {
     const rate = (r) => Math.max(1, Math.round(r * sizeFactor));
     const steadyRate = rate(baseRates.steady);
 
-    // ---- Pre-sell target ----
-    // benchmarkTarget is the industry rule of thumb (50% pre-lease · 30% pre-sale). The actual
-    // target used everywhere below is capped by what's realistically achievable at a steady pace
-    // over the runway that's actually left — so a project with 2 months to opening isn't handed
-    // the same 30% goal as one with 12 months.
-    const benchmarkTarget = isRental ? 0.5 : 0.3;
-    const achievableUnits = units > 0 ? Math.min(units, alreadyUnits + steadyRate * Math.max(0, runway)) : 0;
+    // ---- Pre-sell target, OR post-opening lease-up target ----
+    // Pre-opening: benchmarkTarget is the industry rule of thumb (50% pre-lease · 30%
+    // pre-sale), and target is capped by what's realistically achievable at a steady
+    // pace over the runway actually left — so a project with 2 months to opening isn't
+    // handed the same goal as one with 12.
+    // Post-opening: there's no more countdown to cap against, so that whole framing
+    // stops applying — the only goal left is filling what's still vacant, in the
+    // client's own time. benchmark/target collapse to 100% occupancy and achievableUnits
+    // to the full building, which makes needUnits resolve to actual current vacancy
+    // (units - alreadyUnits) instead of the pre-opening worst-case hypothetical.
+    const benchmarkTarget = noRunway ? 1 : (isRental ? 0.5 : 0.3);
+    // Pre-opening, reserves the same 1-month ramp-up the pace estimates below already pad
+    // onto their timelines (scenarios.months = ceil(needUnits/rate) + 1) — without it, this
+    // formula and that one model two different frictions for the same process and can
+    // disagree: e.g. this could call 50% "achievable" inside a 1.5-month runway while the
+    // padded pace estimate for the same units says it actually takes 3 months.
+    const achievableUnits = noRunway
+      ? units
+      : (units > 0 ? Math.min(units, alreadyUnits + steadyRate * Math.max(0, runway - 1)) : 0);
     const achievablePct = units > 0 ? achievableUnits / units : 0;
     const target = Math.min(benchmarkTarget, achievablePct);
     const targetUnits = Math.ceil(units * target);
@@ -254,7 +273,6 @@ function App() {
     // ---- Runway guardrail ----
     // <3 months = window effectively closed; don't show a fantasy pace.
     const windowClosed = runway > 0 && runway < 3;
-    const noRunway = runway <= 0;
     const perMonthNeeded = runway > 0 ? Math.ceil(needUnits / runway) : needUnits;
     // How far the realistic target falls short of the industry benchmark — the tell that the
     // runway itself, not effort, is the constraint.
@@ -268,12 +286,18 @@ function App() {
     // first showings, deposit paperwork) that a straight units/rate math doesn't account for.
     ].map((s) => ({ ...s, months: needUnits > 0 ? Math.ceil(needUnits / s.rate) + 1 : 0 }));
 
-    // Carrying cost while unsold (rental: lost rent · condo: ~0.6%/mo financing drag)
-    const emptyCostMo = isRental ? units * price : (price * units) * 0.006;
+    // Carrying cost (rental: lost rent · condo: ~0.6%/mo financing drag). Pre-opening
+    // this is a hypothetical worst case (what it'd cost to open with nothing leased, to
+    // motivate acting beforehand) so it's sized to the whole building; post-opening it's
+    // a real, ongoing cost, so it's sized to what's actually still vacant right now.
+    const emptyCostMo = noRunway
+      ? (isRental ? vacantUnits * price : vacantUnits * price * 0.006)
+      : (isRental ? units * price : (price * units) * 0.006);
 
     return {
       units, price, presold, isRental,
       gross, grossBasis, rentRoll,
+      monthsSinceOpening, vacantUnits,
       runway, target, benchmarkTarget, shortOfBenchmark, targetUnits, alreadyUnits, needUnits, securedAtTarget,
       perMonthNeeded, windowClosed, noRunway, scenarios, emptyCostMo, perUnitValue,
     };
@@ -384,7 +408,11 @@ function App() {
 
 function Results({ f, calc, onBack }) {
   const [pdfState, setPdfState] = useState("idle");
-  const label = calc.isRental ? "pre-leased" : "pre-sold";
+  // Drops the "pre-" once the opening date has passed — at that point it's no longer
+  // a pre-sale milestone, it's just current occupancy ("60% leased", not "60% pre-leased").
+  const label = calc.noRunway
+    ? (calc.isRental ? "leased" : "sold")
+    : (calc.isRental ? "pre-leased" : "pre-sold");
   const targetPct = Math.round(calc.target * 100);
   const benchmarkPct = Math.round(calc.benchmarkTarget * 100);
 
@@ -396,24 +424,34 @@ function Results({ f, calc, onBack }) {
     topRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   }, []);
 
-  // Traffic-light urgency read on the runway. Check the runway-critical cases FIRST —
-  // a passed/near-passed opening date caps the achievable target at (or near) 0%, which
-  // makes needUnits === 0 trivially true and must never be read as "already on track."
-  // Only once red is ruled out does needUnits === 0 mean what it looks like: on target.
-  //   red    = window is effectively closed (<3 months, or none left)
-  //   yellow = window's open, but runway is already capping you below the benchmark
-  //   green  = plenty of runway to hit the full industry-benchmark target
-  const urgency = (calc.windowClosed || calc.noRunway)
-    ? "red"
-    : calc.needUnits === 0
+  // Traffic-light read. Two different models depending on whether the opening date has
+  // passed, and needUnits means something different in each:
+  //
+  // Pre-opening, this deliberately does NOT branch on needUnits === 0 — "achievable"
+  // is capped by runway, which makes needUnits === 0 true unconditionally once runway
+  // hits 0, for a 0%-pre-leased project exactly as much as a 90%-pre-leased one. The
+  // signal that actually distinguishes "genuinely hit the benchmark" from "ran out of
+  // runway trying" is shortOfBenchmark, comparing against the fixed industry number
+  // rather than a target that can itself shrink to 0:
+  //   green  = already at or projected to reach the full industry benchmark
+  //   red    = short of benchmark AND runway to close the gap is critical (<3 months)
+  //   yellow = short of benchmark, but still enough runway to work the gap
+  //
+  // Post-opening, there's no runway left to cap achievability, so target always equals
+  // 100% and shortOfBenchmark is trivially false — needUnits is what's meaningful now,
+  // holding actual vacancy (units - alreadyUnits) instead of a runway-capped number:
+  //   green = fully leased/sold, red = still-vacant units sitting empty right now
+  const urgency = calc.noRunway
+    ? (calc.needUnits === 0 ? "green" : "red")
+    : !calc.shortOfBenchmark
       ? "green"
-      : calc.shortOfBenchmark
-        ? "yellow"
-        : "green";
+      : calc.windowClosed
+        ? "red"
+        : "yellow";
   const URGENCY_STYLE = {
     red: { border: "#B23A2E", bg: "#FBEEEC", heading: "#8C2C22", icon: "⚑", label: "Time to move — start leasing now." },
     yellow: { border: "#B8860B", bg: "#FBF6E6", heading: "#8A660A", icon: "⚠", label: "Your runway is tight." },
-    green: { border: "#2F7D5B", bg: "#EBF6F0", heading: "#215C43", icon: "✓", label: "Your runway is healthy." },
+    green: { border: "#2F7D5B", bg: "#EBF6F0", heading: "#215C43", icon: "✓", label: calc.noRunway ? `You're fully ${label}.` : "Your runway is healthy." },
   }[urgency];
 
   async function downloadPDF() {
@@ -464,13 +502,17 @@ function Results({ f, calc, onBack }) {
       y += 8; doc.setDrawColor(...line); doc.line(M, y, W - M, y); y += 16;
 
       const steady = calc.scenarios[1];
+      // needUnits is reliably 0 only when genuinely on target now (post-opening it's
+      // real current vacancy; pre-opening it only reaches 0 when not shortOfBenchmark —
+      // see the on-screen urgency comment for why that held true), so a plain > 0 check
+      // is safe here without a separate shortOfBenchmark branch.
       const paceLabel = calc.needUnits > 0 ? `${steady.months} mo at ${steady.rate}/mo` : "on track";
       const stats = [
         [money(calc.gross), calc.isRental ? "Annual rent roll" : "Total value at stake", calc.noRunway ? "already on the line" : `at stake, ${calc.runway} mo to secure`],
         [`${calc.units} units`, "Project size", f.city || ""],
-        [calc.noRunway ? "—" : `${calc.runway} mo`, "Runway to opening", calc.noRunway ? "opening date has passed" : calc.runway <= 3 ? "not much time left" : "time to lock in demand"],
-        [`${targetPct}% ${label}`, "Recommended target", calc.shortOfBenchmark ? `realistic given runway, vs ${benchmarkPct}% benchmark` : "typical at opening"],
-        [`${calc.needUnits} units`, `Still needed to hit ${targetPct}%`, `${calc.targetUnits} target, ${calc.alreadyUnits} committed`],
+        [calc.noRunway ? `${calc.monthsSinceOpening} mo` : `${calc.runway} mo`, calc.noRunway ? "Time since opening" : "Runway to opening", calc.noRunway ? "now in lease-up" : calc.runway <= 3 ? "not much time left" : "time to lock in demand"],
+        [`${targetPct}% ${label}`, "Recommended target", calc.noRunway ? "full occupancy" : (calc.shortOfBenchmark ? `realistic given runway, vs ${benchmarkPct}% benchmark` : "typical at opening")],
+        [`${calc.needUnits} units`, calc.noRunway ? "Still vacant" : `Still needed to hit ${targetPct}%`, `${calc.targetUnits} target, ${calc.alreadyUnits} committed`],
         [paceLabel, "Realistic pace to target", "healthy sales pace"],
       ];
       const cardH = 54, colGap = 10, rowGap = 8;
@@ -485,13 +527,15 @@ function Results({ f, calc, onBack }) {
       });
       y += cardH * 2 + rowGap + 14;
 
-      // Guardrail note (if window closed) — one condensed line
+      // Guardrail note (if window closed, or post-opening with vacancy left) — one
+      // condensed line. needUnits > 0 is a reliable "still work to do" signal in both
+      // modes now (see the paceLabel comment above).
       if ((calc.windowClosed || calc.noRunway) && calc.needUnits > 0) {
         doc.setFillColor(...paperFill); doc.setDrawColor(...ink); doc.roundedRect(M, y, W - M * 2, 32, 3, 3, "FD");
         doc.setTextColor(...ink); doc.setFont("Poppins", "bold"); doc.setFontSize(7.5);
-        doc.text("PRE-SELL WINDOW CLOSED", M + 12, y + 13);
+        doc.text("TIME TO MOVE — START LEASING NOW", M + 12, y + 13);
         doc.setFont("Poppins", "normal"); doc.setFontSize(7.5);
-        doc.text("Systems need 6–12 months lead time — that's the window for your next project.", M + 12, y + 25);
+        doc.text(`Every month these stay unsold costs ${money(calc.emptyCostMo)}. Start the Launch System today.`, M + 12, y + 25);
         y += 42;
       }
 
@@ -499,8 +543,12 @@ function Results({ f, calc, onBack }) {
       doc.setFillColor(...paperFill); doc.setDrawColor(...ink); doc.roundedRect(M, y, W - M * 2, 38, 3, 3, "FD");
       doc.setTextColor(...ink); doc.setFont("Poppins", "normal"); doc.setFontSize(9.5);
       const secured = money(calc.securedAtTarget) + (calc.isRental ? " first year rent" : "");
-      const insight = `At ${targetPct}% ${label}, you secure ${secured} in commitments before opening,`;
-      const insight2 = `and cut roughly ${money(calc.emptyCostMo)}/mo in carrying cost on unsold units.`;
+      const insight = calc.noRunway
+        ? `At full occupancy, you secure ${secured} in total commitments,`
+        : `At ${targetPct}% ${label}, you secure ${secured} in commitments before opening,`;
+      const insight2 = calc.noRunway
+        ? `and cut roughly ${money(calc.emptyCostMo)}/mo in ongoing carrying cost on vacant units.`
+        : `and cut roughly ${money(calc.emptyCostMo)}/mo in carrying cost on unsold units.`;
       doc.text(insight, M + 12, y + 16); doc.text(insight2, M + 12, y + 29);
       y += 50;
 
@@ -599,19 +647,23 @@ function Results({ f, calc, onBack }) {
             sub: `Across ${calc.units} unit${calc.units === 1 ? "" : "s"}`,
           },
           {
-            label: "Runway to Opening",
-            value: calc.noRunway ? "—" : `${calc.runway} mo`,
-            sub: calc.noRunway ? "Opening date has passed" : calc.runway <= 3 ? "Almost out of time" : "Time to lock in demand",
+            label: calc.noRunway ? "Time Since Opening" : "Runway to Opening",
+            value: calc.noRunway ? `${calc.monthsSinceOpening} mo` : `${calc.runway} mo`,
+            sub: calc.noRunway ? "Now in lease-up" : calc.runway <= 3 ? "Almost out of time" : "Time to lock in demand",
           },
           {
             label: calc.isRental ? "Annual Rent Roll" : "Total Value at Stake",
             value: money(calc.gross),
-            sub: calc.isRental ? `${money(calc.emptyCostMo)}/mo × 12` : calc.grossBasis,
+            sub: calc.isRental
+              ? (calc.noRunway ? "Full annual rent roll at 100% occupancy" : `${money(calc.emptyCostMo)}/mo × 12`)
+              : calc.grossBasis,
           },
           {
-            label: "Cost of Doing Nothing",
+            label: calc.noRunway ? "Cost of Vacancy" : "Cost of Doing Nothing",
             value: `${money(calc.emptyCostMo)}/mo`,
-            sub: calc.isRental ? "Total rent lost per month if you open with zero units pre-leased" : "Total financing cost per month if you open with zero units pre-sold",
+            sub: calc.noRunway
+              ? (calc.isRental ? `Rent lost every month your ${calc.vacantUnits} vacant unit${calc.vacantUnits === 1 ? "" : "s"} sit empty` : `Financing drag every month your ${calc.vacantUnits} unsold unit${calc.vacantUnits === 1 ? "" : "s"} sit`)
+              : (calc.isRental ? "Total rent lost per month if you open with zero units pre-leased" : "Total financing cost per month if you open with zero units pre-sold"),
           },
         ]}
         bottomLabel={URGENCY_STYLE.label}
@@ -619,19 +671,23 @@ function Results({ f, calc, onBack }) {
         bottomText={
           <>
             {urgency === "red" && (
+              // Post-opening (noRunway), needUnits holds real current vacancy, so this can
+              // state it directly. Pre-opening, red is only reachable when shortOfBenchmark
+              // is true and windowClosed is the only remaining case (see urgency comment
+              // above) — needUnits there is guaranteed > 0, never a "need 0 more" non-sequitur.
               calc.noRunway
-                ? <>Your opening date has passed with units still unsold — that's <b>{money(calc.emptyCostMo)}</b> {calc.isRental ? "in lost rent" : "in financing drag"} every month it continues. Start the Launch System now to turn it around.</>
-                : calc.windowClosed
-                  ? <>Only {calc.runway} mo left — a realistic pace only gets you to <b>{targetPct}% {label}</b>, short of the {benchmarkPct}% benchmark. Start the roadmap below today.</>
-                  : <>Even a hot pace won't hit <b>{targetPct}% {label}</b> in {calc.runway} months — you're behind. Start the roadmap below today.</>
+                ? <>You have <b>{calc.vacantUnits} unit{calc.vacantUnits === 1 ? "" : "s"}</b> still vacant post-opening — that's <b>{money(calc.emptyCostMo)}</b> {calc.isRental ? "in lost rent" : "in financing drag"} every month they sit empty. Start the Launch System now to fill them.</>
+                : <>Only {calc.runway} mo left — you need <b>{calc.needUnits} more units</b> to hit your <b>{targetPct}% {label}</b> target. Start the roadmap below today.</>
             )}
             {urgency === "yellow" && (
               <>With {calc.runway} months left, a realistic pace caps you at <b>{targetPct}% {label}</b> — short of the {benchmarkPct}% benchmark. Start now before that gap grows.</>
             )}
             {urgency === "green" && (
-              calc.needUnits === 0
-                ? <>You're already at or above your <b>{targetPct}% {label}</b> target — the Launch System keeps that momentum going.</>
-                : <>A steady pace comfortably hits your <b>{targetPct}% {label}</b> target in {steady.months} mo, with room to spare. Start now to bank it early.</>
+              calc.noRunway
+                ? <>Every unit is <b>{label}</b> — the Launch System keeps demand flowing for turnover and renewals.</>
+                : calc.needUnits === 0
+                  ? <>You're already at or above your <b>{targetPct}% {label}</b> target — the Launch System keeps that momentum going.</>
+                  : <>A steady pace comfortably hits your <b>{targetPct}% {label}</b> target in {steady.months} mo, with room to spare. Start now to bank it early.</>
             )}
           </>
         }
@@ -643,14 +699,14 @@ function Results({ f, calc, onBack }) {
       <KVTable
         rows={[
           {
-            label: `Recommended ${label} target`,
+            label: calc.noRunway ? "Lease-Up Target" : `Recommended ${label} target`,
             value: `${targetPct}%`,
-            sub: calc.shortOfBenchmark ? `vs ${benchmarkPct}% benchmark` : "Typical target at opening",
+            sub: calc.noRunway ? "Full occupancy" : (calc.shortOfBenchmark ? `vs ${benchmarkPct}% benchmark` : "Typical target at opening"),
           },
           {
-            label: "Units Still Needed",
+            label: calc.noRunway ? "Units Still Vacant" : "Units Still Needed",
             value: `${calc.needUnits} units`,
-            sub: `${calc.targetUnits} target, ${calc.alreadyUnits} committed`,
+            sub: calc.noRunway ? `${calc.units} total, ${calc.alreadyUnits} ${label}` : `${calc.targetUnits} target, ${calc.alreadyUnits} committed`,
           },
           ...(calc.needUnits > 0
             ? [{
@@ -664,7 +720,9 @@ function Results({ f, calc, onBack }) {
         bottomStyle={{ bg: BRAND.paper, border: BRAND.ink2, heading: BRAND.ink }}
         bottomText={
           calc.needUnits > 0
-            ? <>Average <b>{steady.rate} units/mo</b> gets you to <b>{targetPct}% {label}</b> in <b>{steady.months} mo</b> — locking in <b>{money(calc.securedAtTarget)}</b> before opening.</>
+            ? (calc.noRunway
+                ? <>Average <b>{steady.rate} units/mo</b> fills your remaining <b>{calc.needUnits} units</b> in <b>{steady.months} mo</b> — worth <b>{money(calc.securedAtTarget - calc.alreadyUnits * calc.perUnitValue)}</b> in additional {calc.isRental ? "annual rent" : "sales"}.</>
+                : <>Average <b>{steady.rate} units/mo</b> gets you to <b>{targetPct}% {label}</b> in <b>{steady.months} mo</b> — locking in <b>{money(calc.securedAtTarget)}</b> before opening.</>)
             : null
         }
       />
@@ -682,7 +740,7 @@ function Results({ f, calc, onBack }) {
           rel="noopener noreferrer"
           className="ctaPill"
         >
-          I'm Ready to {calc.isRental ? "Pre-Lease" : "Pre-Sell"} →
+          I'm Ready to {calc.noRunway ? (calc.isRental ? "Lease Up" : "Sell Out") : (calc.isRental ? "Pre-Lease" : "Pre-Sell")} →
         </a>
       </div>
 
