@@ -28,7 +28,7 @@
 
 <script type="text/babel" data-presets="react">
 
-const { useState, useMemo, useRef, useLayoutEffect } = React;
+const { useState, useMemo, useRef, useEffect, useLayoutEffect } = React;
 
 // ============================================================
 // REZ 3D — The Launch System Roadmap
@@ -254,7 +254,9 @@ function App() {
       { key: "Slow", rate: rate(baseRates.slow), note: "soft market" },
       { key: "Steady", rate: steadyRate, note: "healthy market" },
       { key: "Hot", rate: rate(baseRates.hot), note: "high demand" },
-    ].map((s) => ({ ...s, months: needUnits > 0 ? Math.ceil(needUnits / s.rate) : 0 }));
+    // +1 month pad on top of the raw division: leaves room for ramp-up (list approvals,
+    // first showings, deposit paperwork) that a straight units/rate math doesn't account for.
+    ].map((s) => ({ ...s, months: needUnits > 0 ? Math.ceil(needUnits / s.rate) + 1 : 0 }));
 
     // Carrying cost while unsold (rental: lost rent · condo: ~0.6%/mo financing drag)
     const emptyCostMo = isRental ? units * price : (price * units) * 0.006;
@@ -293,6 +295,8 @@ function App() {
         .ctaPill { display:inline-block; width:100%; max-width:560px; text-align:center; font-family:'Poppins',Arial,sans-serif; font-weight:800; letter-spacing:.02em; text-transform:uppercase; text-decoration:none; background:${BRAND.ink}; color:${BRAND.onDark}; padding:24px 32px; border-radius:999px; font-size:clamp(15px, 3.6vw, 18px); transition: background .15s ease, transform .1s ease; }
         .ctaPill:hover { background:${BRAND.accentDeep}; }
         .ctaPill:active { transform: scale(0.98); }
+        .kvLabel { background:${BRAND.ink}; color:${BRAND.onDark}; font-family:'Poppins',Arial,sans-serif; font-size:14px; font-weight:800; letter-spacing:.03em; text-transform:uppercase; padding:14px 16px; width:1%; white-space:nowrap; vertical-align:middle; }
+        @media (max-width: 520px) { .kvLabel { white-space: normal; } }
         .planpoint { background:${BRAND.ink}; color:${BRAND.onDark}; border-radius:5px; padding:30px; margin-top:30px; }
         .ppTag { font-family:'Poppins',Arial,sans-serif; letter-spacing:.24em; text-transform:uppercase; font-size:10px; color:${BRAND.onDarkMuted}; font-weight:700; }
       `}</style>
@@ -373,6 +377,14 @@ function Results({ f, calc, onBack }) {
   const label = calc.isRental ? "pre-leased" : "pre-sold";
   const targetPct = Math.round(calc.target * 100);
   const benchmarkPct = Math.round(calc.benchmarkTarget * 100);
+
+  // Reveal the results scrolled to the constraint tables (the payoff), not wherever the
+  // page happened to be scrolled to on the form — the client can scroll up for the hero
+  // or down for the roadmap from there.
+  const topRef = useRef(null);
+  useEffect(() => {
+    topRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, []);
 
   // Traffic-light urgency read on the runway. The realistic target is already capped by
   // what a steady pace can achieve in the time left, so "steady meets target" is true by
@@ -564,7 +576,7 @@ function Results({ f, calc, onBack }) {
   const steady = calc.scenarios[1];
 
   return (
-    <div style={{ marginTop: 26 }}>
+    <div style={{ marginTop: 26 }} ref={topRef}>
 
       {/* ===================== SECTION 1: YOUR PROJECT CONSTRAINTS ===================== */}
       <SectionLabel sub="Where this project stands today — and what waiting is costing you.">Your Project Constraints</SectionLabel>
@@ -589,7 +601,7 @@ function Results({ f, calc, onBack }) {
           {
             label: "Cost of Doing Nothing",
             value: `${money(calc.emptyCostMo)}/mo`,
-            sub: calc.isRental ? "Rent lost every month a unit sits empty" : "Financing drag every month unsold inventory sits",
+            sub: calc.isRental ? "Total rent lost per month if you open with zero units pre-leased" : "Total financing cost per month if you open with zero units pre-sold",
           },
         ]}
         bottomLabel={URGENCY_STYLE.label}
@@ -647,8 +659,8 @@ function Results({ f, calc, onBack }) {
         }
       />
 
-      <h2 style={{ fontSize: 24, fontWeight: 700, margin: "34px 0 6px", fontFamily: "'Poppins', Arial, sans-serif" }}>{ROADMAP_NAME}</h2>
-      <p style={{ fontFamily: "'Poppins',Arial,sans-serif", fontSize: 14, color: BRAND.muted, marginTop: 0, marginBottom: 4 }}>
+      <h2 style={{ fontSize: 24, fontWeight: 700, margin: "34px 0 6px", fontFamily: "'Poppins', Arial, sans-serif", textAlign: "center" }}>{ROADMAP_NAME}</h2>
+      <p style={{ fontFamily: "'Poppins',Arial,sans-serif", fontSize: 14, color: BRAND.muted, marginTop: 0, marginBottom: 4, textAlign: "center" }}>
         Phase 1 opens the pipeline. Phase 2 converts it. Phase 3 keeps it fed.
       </p>
       <ConstraintTable phases={PHASES} />
@@ -742,34 +754,30 @@ function SectionLabel({ children, sub }) {
 // An optional colored "bottom line" band (traffic-light urgency, or a plain insight) closes it out.
 function KVTable({ rows, bottomLabel, bottomText, bottomStyle }) {
   return (
-    <div style={{ marginTop: 16 }}>
-      <FitWidth>
-        <div style={{ border: `2px solid ${BRAND.ink}`, borderRadius: 4, overflow: "hidden", background: "#fff", width: 760 }}>
-          <table style={{ width: "100%", borderCollapse: "collapse" }}>
-            <tbody>
-              {rows.map((r, i) => (
-                <tr key={i}>
-                  <td style={{ background: BRAND.ink, color: BRAND.onDark, fontFamily: "'Poppins',Arial,sans-serif", fontSize: 14, fontWeight: 800, letterSpacing: ".03em", textTransform: "uppercase", padding: "14px 16px", width: "1%", whiteSpace: "nowrap", verticalAlign: "middle", borderTop: i === 0 ? "none" : `1px solid rgba(255,255,255,0.14)` }}>
-                    {r.label}
-                  </td>
-                  <td style={{ padding: "14px 18px", verticalAlign: "middle", borderTop: i === 0 ? "none" : `1px solid ${BRAND.line}` }}>
-                    <span style={{ fontFamily: "'Poppins',Arial,sans-serif", fontWeight: 700, fontSize: 17, color: BRAND.ink, whiteSpace: "nowrap" }}>{r.value}</span>
-                    {r.sub && <div style={{ fontFamily: "'Poppins',Arial,sans-serif", fontSize: 12, color: BRAND.muted, marginTop: 3, whiteSpace: "nowrap" }}>{r.sub}</div>}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          {bottomText && (
-            <div style={{ background: bottomStyle.bg, borderTop: `2px solid ${bottomStyle.border}`, padding: "16px 18px", fontFamily: "'Poppins',Arial,sans-serif", fontSize: 14, lineHeight: 1.55, color: BRAND.ink }}>
-              <span style={{ fontFamily: "'Poppins',Arial,sans-serif", fontSize: 11, fontWeight: 800, letterSpacing: ".08em", textTransform: "uppercase", color: bottomStyle.heading, display: "block", marginBottom: 4 }}>
-                {bottomStyle.icon} {bottomLabel}
-              </span>
-              {bottomText}
-            </div>
-          )}
+    <div style={{ border: `2px solid ${BRAND.ink}`, borderRadius: 4, overflow: "hidden", marginTop: 16, background: "#fff" }}>
+      <table style={{ width: "100%", borderCollapse: "collapse" }}>
+        <tbody>
+          {rows.map((r, i) => (
+            <tr key={i}>
+              <td className="kvLabel" style={{ borderTop: i === 0 ? "none" : `1px solid rgba(255,255,255,0.14)` }}>
+                {r.label}
+              </td>
+              <td style={{ padding: "14px 18px", verticalAlign: "middle", borderTop: i === 0 ? "none" : `1px solid ${BRAND.line}` }}>
+                <span style={{ fontFamily: "'Poppins',Arial,sans-serif", fontWeight: 700, fontSize: 17, color: BRAND.ink }}>{r.value}</span>
+                {r.sub && <div style={{ fontFamily: "'Poppins',Arial,sans-serif", fontSize: 12, color: BRAND.muted, marginTop: 3 }}>{r.sub}</div>}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      {bottomText && (
+        <div style={{ background: bottomStyle.bg, borderTop: `2px solid ${bottomStyle.border}`, padding: "16px 18px", fontFamily: "'Poppins',Arial,sans-serif", fontSize: 14, lineHeight: 1.55, color: BRAND.ink }}>
+          <span style={{ fontFamily: "'Poppins',Arial,sans-serif", fontSize: 11, fontWeight: 800, letterSpacing: ".08em", textTransform: "uppercase", color: bottomStyle.heading, display: "block", marginBottom: 4 }}>
+            {bottomStyle.icon} {bottomLabel}
+          </span>
+          {bottomText}
         </div>
-      </FitWidth>
+      )}
     </div>
   );
 }
