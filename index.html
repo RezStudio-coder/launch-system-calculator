@@ -131,9 +131,19 @@ function money(n) {
 function monthsUntil(dateStr) {
   if (!dateStr) return 0;
   const now = new Date();
-  const target = new Date(dateStr + "-01");
-  const m = (target.getFullYear() - now.getFullYear()) * 12 + (target.getMonth() - now.getMonth());
-  return Math.max(0, m);
+  // Built from numeric y/m parts (not `new Date(dateStr + "-01")`) — a date-only ISO
+  // string parses as UTC midnight, which in any timezone behind UTC (all of North
+  // America) lands on the *previous* local day. Near a month boundary that silently
+  // shifts the target back a whole calendar month (Sept 1 UTC reads as Aug 31 local).
+  const [y, mo] = dateStr.split("-").map(Number);
+  const target = new Date(y, mo - 1, 1);
+  // Day-based instead of a flat calendar-month subtraction, rounded to the nearest
+  // half month: a mid-August fill for a September opening is genuinely ~2 weeks out,
+  // not a clean 0 or 1 — rounding to whole months either overstates the runway or,
+  // right at a month boundary, flags a still-upcoming opening as already passed.
+  const days = (target - now) / 86400000;
+  const months = Math.round((days / 30.44) * 2) / 2;
+  return Math.max(0, months);
 }
 
 // Loads an image and crops it to targetW x targetH (like CSS object-fit: cover),
@@ -386,22 +396,22 @@ function Results({ f, calc, onBack }) {
     topRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   }, []);
 
-  // Traffic-light urgency read on the runway. The realistic target is already capped by
-  // what a steady pace can achieve in the time left, so "steady meets target" is true by
-  // construction — that can't be the signal. The real tell is whether the runway is short
-  // enough to force the target below the industry benchmark at all:
+  // Traffic-light urgency read on the runway. Check the runway-critical cases FIRST —
+  // a passed/near-passed opening date caps the achievable target at (or near) 0%, which
+  // makes needUnits === 0 trivially true and must never be read as "already on track."
+  // Only once red is ruled out does needUnits === 0 mean what it looks like: on target.
   //   red    = window is effectively closed (<3 months, or none left)
   //   yellow = window's open, but runway is already capping you below the benchmark
   //   green  = plenty of runway to hit the full industry-benchmark target
-  const urgency = calc.needUnits === 0
-    ? "green"
-    : (calc.windowClosed || calc.noRunway)
-      ? "red"
+  const urgency = (calc.windowClosed || calc.noRunway)
+    ? "red"
+    : calc.needUnits === 0
+      ? "green"
       : calc.shortOfBenchmark
         ? "yellow"
         : "green";
   const URGENCY_STYLE = {
-    red: { border: "#B23A2E", bg: "#FBEEEC", heading: "#8C2C22", icon: "⚑", label: "Your pre-sell window has effectively closed." },
+    red: { border: "#B23A2E", bg: "#FBEEEC", heading: "#8C2C22", icon: "⚑", label: "Time to move — start leasing now." },
     yellow: { border: "#B8860B", bg: "#FBF6E6", heading: "#8A660A", icon: "⚠", label: "Your runway is tight." },
     green: { border: "#2F7D5B", bg: "#EBF6F0", heading: "#215C43", icon: "✓", label: "Your runway is healthy." },
   }[urgency];
@@ -610,7 +620,7 @@ function Results({ f, calc, onBack }) {
           <>
             {urgency === "red" && (
               calc.noRunway
-                ? <>Your opening date has passed — there's no runway left to pre-sell into. For your <i>next</i> project, start <b>6–12 months</b> out.</>
+                ? <>Your opening date has passed with units still unsold — that's <b>{money(calc.emptyCostMo)}</b> {calc.isRental ? "in lost rent" : "in financing drag"} every month it continues. Start the Launch System now to turn it around.</>
                 : calc.windowClosed
                   ? <>Only {calc.runway} mo left — a realistic pace only gets you to <b>{targetPct}% {label}</b>, short of the {benchmarkPct}% benchmark. Start the roadmap below today.</>
                   : <>Even a hot pace won't hit <b>{targetPct}% {label}</b> in {calc.runway} months — you're behind. Start the roadmap below today.</>
