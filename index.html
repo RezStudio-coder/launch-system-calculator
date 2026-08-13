@@ -28,7 +28,7 @@
 
 <script type="text/babel" data-presets="react">
 
-const { useState, useMemo, useRef } = React;
+const { useState, useMemo, useRef, useLayoutEffect } = React;
 
 // ============================================================
 // REZ 3D — The Launch System Roadmap
@@ -95,9 +95,9 @@ const PHASES = [
     title: "Creative Foundation",
     tagline: "Make the project sellable before it exists",
     steps: [
-      { n: "01", t: "Renders that look like photos", d: "See the building a year before it's built." },
-      { n: "02", t: "A showreel that sells the space", d: "A short walkthrough video for launch and social." },
-      { n: "03", t: "VR tours and 3D floor plans", d: "Buyers explore units and plans instantly." },
+      { n: "01", t: "Renders that look like photos", c: "Buyers can't picture a building that doesn't exist yet.", d: "See the building a year before it's built." },
+      { n: "02", t: "A showreel that sells the space", c: "No way to build demand before you break ground.", d: "A short walkthrough video for launch and social." },
+      { n: "03", t: "VR tours and 3D floor plans", c: "Buyers can't explore units that aren't built.", d: "Buyers explore units and plans instantly." },
     ],
   },
   {
@@ -105,9 +105,9 @@ const PHASES = [
     title: "Launch System",
     tagline: "Turn that demand into a qualified waitlist",
     steps: [
-      { n: "04", t: "A website built to capture leads", d: "Bilingual, SEO-ready, and built to capture every visitor as a lead." },
-      { n: "05", t: "A plan selector that qualifies buyers", d: "Buyers browse units and pricing live — only serious leads reach your team." },
-      { n: "06", t: "A presentation office that closes", d: "Signage and materials that turn visits into deposits." },
+      { n: "04", t: "A website built to capture leads", c: "Interest with nowhere to go, and no way to capture it as a lead.", d: "Bilingual, SEO-ready, and built to capture every visitor as a lead." },
+      { n: "05", t: "A plan selector that qualifies buyers", c: "Your team fields questions instead of qualified buyers.", d: "Buyers browse units and pricing live — only serious leads reach your team." },
+      { n: "06", t: "A presentation office that closes", c: "Site visits stall without the materials to close them.", d: "Signage and materials that turn visits into deposits." },
     ],
   },
   {
@@ -115,9 +115,9 @@ const PHASES = [
     title: "Social Push",
     tagline: "Get the project in front of the right buyers",
     steps: [
-      { n: "07", t: "Launch content built from your renders", d: "Photo and video content cut from your renders — ready to post." },
-      { n: "08", t: "A posting playbook you can run", d: "A simple posting plan and caption library you run in-house." },
-      { n: "09", t: "Content that feeds the waitlist", d: "Every post drives traffic back to your site as leads." },
+      { n: "07", t: "Launch content built from your renders", c: "No content ready for launch without a separate shoot.", d: "Photo and video content cut from your renders — ready to post." },
+      { n: "08", t: "A posting playbook you can run", c: "No consistent presence without hiring an agency.", d: "A simple posting plan and caption library you run in-house." },
+      { n: "09", t: "Content that feeds the waitlist", c: "Social traffic that never turns into a lead.", d: "Every post drives traffic back to your site as leads." },
     ],
   },
 ];
@@ -290,13 +290,9 @@ function App() {
         .btnPrimary:hover { background:${BRAND.accentDeep}; }
         .btnGhost { background:transparent; color:${BRAND.ink}; border:1px solid ${BRAND.ink}; }
         .btnGhost:hover { background:${BRAND.ink}; color:#fff; }
-        .stat { background:#fff; border:1px solid ${BRAND.line}; border-radius:4px; padding:20px; overflow:hidden; }
-        .statN { font-family:'Poppins', Arial, sans-serif; font-size:clamp(20px, 5.5vw, 30px); font-weight:700; color:${BRAND.ink}; line-height:1.1; white-space:nowrap; }
-        .statL { font-family:'Poppins',Arial,sans-serif; font-size:11px; letter-spacing:.08em; text-transform:uppercase; color:${BRAND.muted}; margin-top:8px; font-weight:600; }
-        .stageRow { display:flex; gap:18px; padding:18px 0; border-top:1px solid ${BRAND.line}; }
-        .stageN { font-family:'Poppins',Arial,sans-serif; font-weight:800; color:${BRAND.ink}; font-size:15px; min-width:34px; }
-        .stageT { font-family:'Poppins', Arial, sans-serif; font-size:19px; font-weight:700; margin:0 0 4px; }
-        .stageD { font-family:'Poppins',Arial,sans-serif; font-size:14px; color:${BRAND.muted}; line-height:1.5; margin:0; }
+        .ctaPill { display:inline-block; width:100%; max-width:560px; text-align:center; font-family:'Poppins',Arial,sans-serif; font-weight:800; letter-spacing:.02em; text-transform:uppercase; text-decoration:none; background:${BRAND.ink}; color:${BRAND.onDark}; padding:24px 32px; border-radius:999px; font-size:clamp(15px, 3.6vw, 18px); transition: background .15s ease, transform .1s ease; }
+        .ctaPill:hover { background:${BRAND.accentDeep}; }
+        .ctaPill:active { transform: scale(0.98); }
         .planpoint { background:${BRAND.ink}; color:${BRAND.onDark}; border-radius:5px; padding:30px; margin-top:30px; }
         .ppTag { font-family:'Poppins',Arial,sans-serif; letter-spacing:.24em; text-transform:uppercase; font-size:10px; color:${BRAND.onDarkMuted}; font-weight:700; }
       `}</style>
@@ -570,130 +566,101 @@ function Results({ f, calc, onBack }) {
   return (
     <div style={{ marginTop: 26 }}>
 
-      {/* ===================== SECTION 1: YOUR PROJECT OUTLOOK ===================== */}
-      <SectionLabel sub="Where this project stands today — and what waiting is costing you.">Your Project Outlook</SectionLabel>
+      {/* ===================== SECTION 1: YOUR PROJECT CONSTRAINTS ===================== */}
+      <SectionLabel sub="Where this project stands today — and what waiting is costing you.">Your Project Constraints</SectionLabel>
 
-      <div className="grid3">
-        <Stat
-          n={`$${Math.round(calc.price).toLocaleString()}${calc.isRental ? "/mo" : ""}`}
-          l={calc.isRental ? "Rent / Unit / mo" : "Price / Unit"}
-          sub={`Across ${calc.units} unit${calc.units === 1 ? "" : "s"}`}
-        />
-        <Stat
-          n={calc.noRunway ? "—" : `${calc.runway} mo`}
-          l="Runway to Opening"
-          sub={calc.noRunway ? "Opening date has passed" : calc.runway <= 3 ? "Almost out of time" : "Time to lock in demand"}
-        />
-        {calc.isRental ? (
-          <Stat n={money(calc.gross)} l="Annual Rent Roll" sub={`${money(calc.emptyCostMo)}/mo × 12`} />
-        ) : (
-          <Stat n={money(calc.gross)} l="Total Value at Stake" sub={calc.grossBasis} />
-        )}
-      </div>
-
-      {/* Pain point: cost of doing nothing */}
-      <div style={{ background: "#fff", border: `2px solid ${BRAND.ink}`, borderRadius: 4, padding: 24, marginTop: 16 }}>
-        <div style={{ fontFamily: "'Poppins',Arial,sans-serif", fontSize: 11, fontWeight: 800, letterSpacing: ".1em", textTransform: "uppercase", color: BRAND.muted }}>
-          The cost of doing nothing
-        </div>
-        <div style={{ fontFamily: "'Poppins',Arial,sans-serif", fontWeight: 800, fontSize: 44, lineHeight: 1.15, color: BRAND.ink, margin: "6px 0 4px" }}>
-          {money(calc.emptyCostMo)}<span style={{ fontSize: 20, fontWeight: 700 }}>/mo</span>
-        </div>
-        <div style={{ fontFamily: "'Poppins',Arial,sans-serif", fontSize: 14.5, color: BRAND.ink2, lineHeight: 1.5 }}>
-          {calc.isRental ? "The rent you lose every month a unit sits empty instead of leased." : "What unsold inventory drags in financing cost every month it sits on the market."}
-        </div>
-      </div>
-
-      {/* Runway urgency — traffic-light read on how tight the window really is */}
-      <div style={{ background: URGENCY_STYLE.bg, border: `2px solid ${URGENCY_STYLE.border}`, borderRadius: 4, padding: 20, marginTop: 18, fontFamily: "'Poppins',Arial,sans-serif", fontSize: 14.5, lineHeight: 1.6, color: BRAND.ink }}>
-        <b style={{ color: URGENCY_STYLE.heading }}>{URGENCY_STYLE.icon} {URGENCY_STYLE.label}</b><br />
-        {urgency === "red" && (
-          calc.noRunway
-            ? <>Your opening date has passed — there's no runway left to pre-sell into. For your <i>next</i> project, start <b>6–12 months</b> out.</>
-            : calc.windowClosed
-              ? <>Only {calc.runway} mo left — a realistic pace only gets you to <b>{targetPct}% {label}</b>, short of the {benchmarkPct}% benchmark. Start the roadmap below today.</>
-              : <>Even a hot pace won't hit <b>{targetPct}% {label}</b> in {calc.runway} months — you're behind. Start the roadmap below today.</>
-        )}
-        {urgency === "yellow" && (
-          <>With {calc.runway} months left, a realistic pace caps you at <b>{targetPct}% {label}</b> — short of the {benchmarkPct}% benchmark. Start now before that gap grows.</>
-        )}
-        {urgency === "green" && (
-          calc.needUnits === 0
-            ? <>You're already at or above your <b>{targetPct}% {label}</b> target — the Launch System keeps that momentum going.</>
-            : <>A steady pace comfortably hits your <b>{targetPct}% {label}</b> target in {steady.months} mo, with room to spare. Start now to bank it early.</>
-        )}
-      </div>
+      <KVTable
+        rows={[
+          {
+            label: calc.isRental ? "Rent / Unit / mo" : "Price / Unit",
+            value: `$${Math.round(calc.price).toLocaleString()}${calc.isRental ? "/mo" : ""}`,
+            sub: `Across ${calc.units} unit${calc.units === 1 ? "" : "s"}`,
+          },
+          {
+            label: "Runway to Opening",
+            value: calc.noRunway ? "—" : `${calc.runway} mo`,
+            sub: calc.noRunway ? "Opening date has passed" : calc.runway <= 3 ? "Almost out of time" : "Time to lock in demand",
+          },
+          {
+            label: calc.isRental ? "Annual Rent Roll" : "Total Value at Stake",
+            value: money(calc.gross),
+            sub: calc.isRental ? `${money(calc.emptyCostMo)}/mo × 12` : calc.grossBasis,
+          },
+          {
+            label: "Cost of Doing Nothing",
+            value: `${money(calc.emptyCostMo)}/mo`,
+            sub: calc.isRental ? "Rent lost every month a unit sits empty" : "Financing drag every month unsold inventory sits",
+          },
+        ]}
+        bottomLabel={URGENCY_STYLE.label}
+        bottomStyle={URGENCY_STYLE}
+        bottomText={
+          <>
+            {urgency === "red" && (
+              calc.noRunway
+                ? <>Your opening date has passed — there's no runway left to pre-sell into. For your <i>next</i> project, start <b>6–12 months</b> out.</>
+                : calc.windowClosed
+                  ? <>Only {calc.runway} mo left — a realistic pace only gets you to <b>{targetPct}% {label}</b>, short of the {benchmarkPct}% benchmark. Start the roadmap below today.</>
+                  : <>Even a hot pace won't hit <b>{targetPct}% {label}</b> in {calc.runway} months — you're behind. Start the roadmap below today.</>
+            )}
+            {urgency === "yellow" && (
+              <>With {calc.runway} months left, a realistic pace caps you at <b>{targetPct}% {label}</b> — short of the {benchmarkPct}% benchmark. Start now before that gap grows.</>
+            )}
+            {urgency === "green" && (
+              calc.needUnits === 0
+                ? <>You're already at or above your <b>{targetPct}% {label}</b> target — the Launch System keeps that momentum going.</>
+                : <>A steady pace comfortably hits your <b>{targetPct}% {label}</b> target in {steady.months} mo, with room to spare. Start now to bank it early.</>
+            )}
+          </>
+        }
+      />
 
       {/* ===================== SECTION 2: YOUR TAILORED ROADMAP ===================== */}
       <SectionLabel sub="What the Launch System gets you, step by step.">Your Tailored Roadmap</SectionLabel>
 
-      {calc.needUnits > 0 && (
-        <div style={{ background: "#F0F0F0", border: `2px solid ${BRAND.ink2}`, borderRadius: 4, padding: 22, fontFamily: "'Poppins',Arial,sans-serif", fontSize: 15.5, lineHeight: 1.6, color: BRAND.ink2 }}>
-          Average <b style={{ color: BRAND.ink }}>{steady.rate} units/mo</b> gets you to <b style={{ color: BRAND.ink }}>{targetPct}% {label}</b> in <b style={{ color: BRAND.ink }}>{steady.months} mo</b> — locking in <b style={{ color: BRAND.ink }}>{money(calc.securedAtTarget)}</b> before opening.
-        </div>
-      )}
-
-      <div className="grid2" style={{ marginTop: 16 }}>
-        <Stat n={`${targetPct}%`} l={`Recommended ${label} target`} sub={calc.shortOfBenchmark ? `vs ${benchmarkPct}% benchmark` : "Typical target at opening"} />
-        <Stat n={`${calc.needUnits}`} l={`Units still needed`} sub={`${calc.targetUnits} target, ${calc.alreadyUnits} committed`} />
-      </div>
-
-      {/* Realistic pace: Slow / Steady / Hot */}
-      {calc.needUnits > 0 && (
-        <div style={{ background: "#fff", border: `1px solid ${BRAND.line}`, borderRadius: 4, padding: 20, marginTop: 18 }}>
-          <div style={{ fontFamily: "'Poppins',Arial,sans-serif", fontSize: 12, letterSpacing: ".06em", textTransform: "uppercase", color: BRAND.ink2, fontWeight: 700, marginBottom: 14 }}>
-            How long {calc.needUnits} units takes to move
-          </div>
-          <div className="grid3">
-            {calc.scenarios.map((s, i) => (
-              <div key={s.key} style={{ textAlign: "center", padding: "14px 8px", background: i === 1 ? "#F0F0F0" : BRAND.paper, border: `${i === 1 ? 2 : 1}px solid ${i === 1 ? BRAND.ink2 : BRAND.line}`, borderRadius: 4 }}>
-                <div style={{ fontFamily: "'Poppins',Arial,sans-serif", fontSize: 11, fontWeight: 800, letterSpacing: ".1em", textTransform: "uppercase", color: i === 1 ? BRAND.ink : BRAND.muted }}>{s.key}</div>
-                <div style={{ fontFamily: "'Poppins', Arial, sans-serif", fontWeight: 800, fontSize: 28, margin: "6px 0 2px", color: BRAND.ink }}>{s.months} mo</div>
-                <div style={{ fontFamily: "'Poppins',Arial,sans-serif", fontSize: 12, color: BRAND.muted }}>{s.rate}/mo · {s.note}</div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
+      <KVTable
+        rows={[
+          {
+            label: `Recommended ${label} target`,
+            value: `${targetPct}%`,
+            sub: calc.shortOfBenchmark ? `vs ${benchmarkPct}% benchmark` : "Typical target at opening",
+          },
+          {
+            label: "Units Still Needed",
+            value: `${calc.needUnits} units`,
+            sub: `${calc.targetUnits} target, ${calc.alreadyUnits} committed`,
+          },
+          ...(calc.needUnits > 0
+            ? [{
+                label: "Pace to Get There",
+                value: `${steady.rate} units/mo → ${steady.months} mo`,
+                sub: `Slow: ${calc.scenarios[0].months} mo · Hot: ${calc.scenarios[2].months} mo`,
+              }]
+            : []),
+        ]}
+        bottomLabel="The bottom line"
+        bottomStyle={{ bg: BRAND.paper, border: BRAND.ink2, heading: BRAND.ink }}
+        bottomText={
+          calc.needUnits > 0
+            ? <>Average <b>{steady.rate} units/mo</b> gets you to <b>{targetPct}% {label}</b> in <b>{steady.months} mo</b> — locking in <b>{money(calc.securedAtTarget)}</b> before opening.</>
+            : null
+        }
+      />
 
       <h2 style={{ fontSize: 24, fontWeight: 700, margin: "34px 0 6px", fontFamily: "'Poppins', Arial, sans-serif" }}>{ROADMAP_NAME}</h2>
-      <p style={{ fontFamily: "'Poppins',Arial,sans-serif", fontSize: 14, color: BRAND.muted, marginTop: 0, marginBottom: 20 }}>
+      <p style={{ fontFamily: "'Poppins',Arial,sans-serif", fontSize: 14, color: BRAND.muted, marginTop: 0, marginBottom: 4 }}>
         Phase 1 opens the pipeline. Phase 2 converts it. Phase 3 keeps it fed.
       </p>
-      {PHASES.map((ph) => (
-        <div key={ph.phase} style={{ marginBottom: 28 }}>
-          <div style={{ display: "flex", alignItems: "baseline", gap: 12, paddingBottom: 6, borderBottom: `2px solid ${BRAND.accent}`, marginBottom: 4 }}>
-            <span style={{ fontFamily: "'Poppins',Arial,sans-serif", fontSize: 11, fontWeight: 800, letterSpacing: ".16em", textTransform: "uppercase", color: BRAND.accentDeep }}>{ph.phase}</span>
-            <span style={{ fontSize: 19, fontWeight: 700, fontFamily: "'Poppins', Arial, sans-serif" }}>{ph.title}</span>
-            <span style={{ fontFamily: "'Poppins',Arial,sans-serif", fontSize: 13, color: BRAND.muted, fontStyle: "italic", marginLeft: "auto" }}>{ph.tagline}</span>
-          </div>
-          {ph.steps.map((s) => (
-            <div className="stageRow" key={s.n}>
-              <div className="stageN">{s.n}</div>
-              <div>
-                <p className="stageT">{s.t}</p>
-                <p className="stageD">{s.d}</p>
-              </div>
-            </div>
-          ))}
-        </div>
-      ))}
+      <ConstraintTable phases={PHASES} />
 
-      <div style={{ background: BRAND.ink, borderRadius: 4, padding: 30, marginTop: 8, marginBottom: 8, textAlign: "center" }}>
-        <div style={{ fontFamily: "'Poppins',Arial,sans-serif", fontSize: 21, fontWeight: 700, color: BRAND.onDark, marginBottom: 8 }}>
-          Ready to put this into action?
-        </div>
-        <div style={{ fontFamily: "'Poppins',Arial,sans-serif", fontSize: 14.5, color: BRAND.onDarkMuted, marginBottom: 22, maxWidth: 480, marginLeft: "auto", marginRight: "auto", lineHeight: 1.5 }}>
-          Renders, website, plan selector, and social — all built for your project.
-        </div>
+      <div style={{ textAlign: "center", marginTop: 34, marginBottom: 34 }}>
         <a
           href="https://rez3drenders.ca/#00238626-d63c-42cc-b4be-d0ebe5192000"
           target="_blank"
           rel="noopener noreferrer"
-          className="btn"
-          style={{ display: "inline-block", textDecoration: "none", background: BRAND.onDark, color: BRAND.ink }}
+          className="ctaPill"
         >
-          Contact Us →
+          I'm Ready to {calc.isRental ? "Pre-Lease" : "Pre-Sell"} →
         </a>
       </div>
 
@@ -771,12 +738,121 @@ function SectionLabel({ children, sub }) {
   );
 }
 
-function Stat({ n, l, sub }) {
+// Compact key-value table: left column = black label cell, right column = value + sub-note.
+// An optional colored "bottom line" band (traffic-light urgency, or a plain insight) closes it out.
+function KVTable({ rows, bottomLabel, bottomText, bottomStyle }) {
   return (
-    <div className="stat">
-      <div className="statN">{n}</div>
-      <div className="statL">{l}</div>
-      {sub && <div style={{ fontFamily: "'Poppins',Arial,sans-serif", fontSize: 10.5, color: BRAND.muted, marginTop: 5, lineHeight: 1.35, opacity: 0.85 }}>{sub}</div>}
+    <div style={{ marginTop: 16 }}>
+      <FitWidth>
+        <div style={{ border: `2px solid ${BRAND.ink}`, borderRadius: 4, overflow: "hidden", background: "#fff", width: 760 }}>
+          <table style={{ width: "100%", borderCollapse: "collapse" }}>
+            <tbody>
+              {rows.map((r, i) => (
+                <tr key={i}>
+                  <td style={{ background: BRAND.ink, color: BRAND.onDark, fontFamily: "'Poppins',Arial,sans-serif", fontSize: 14, fontWeight: 800, letterSpacing: ".03em", textTransform: "uppercase", padding: "14px 16px", width: "1%", whiteSpace: "nowrap", verticalAlign: "middle", borderTop: i === 0 ? "none" : `1px solid rgba(255,255,255,0.14)` }}>
+                    {r.label}
+                  </td>
+                  <td style={{ padding: "14px 18px", verticalAlign: "middle", borderTop: i === 0 ? "none" : `1px solid ${BRAND.line}` }}>
+                    <span style={{ fontFamily: "'Poppins',Arial,sans-serif", fontWeight: 700, fontSize: 17, color: BRAND.ink, whiteSpace: "nowrap" }}>{r.value}</span>
+                    {r.sub && <div style={{ fontFamily: "'Poppins',Arial,sans-serif", fontSize: 12, color: BRAND.muted, marginTop: 3, whiteSpace: "nowrap" }}>{r.sub}</div>}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {bottomText && (
+            <div style={{ background: bottomStyle.bg, borderTop: `2px solid ${bottomStyle.border}`, padding: "16px 18px", fontFamily: "'Poppins',Arial,sans-serif", fontSize: 14, lineHeight: 1.55, color: BRAND.ink }}>
+              <span style={{ fontFamily: "'Poppins',Arial,sans-serif", fontSize: 11, fontWeight: 800, letterSpacing: ".08em", textTransform: "uppercase", color: bottomStyle.heading, display: "block", marginBottom: 4 }}>
+                {bottomStyle.icon} {bottomLabel}
+              </span>
+              {bottomText}
+            </div>
+          )}
+        </div>
+      </FitWidth>
+    </div>
+  );
+}
+
+// Constraint -> Result table: each row is a roadmap step, grouped under a phase divider row.
+// Left column names the step, middle names the problem it removes, right names what it delivers.
+// Renders children at their natural (desktop) width, then scales the whole block down
+// uniformly to fit whatever width it's given — so narrow screens see the exact same
+// layout and proportions as desktop, just smaller, instead of the browser reflowing
+// columns and wrapping text awkwardly.
+function FitWidth({ children }) {
+  const outerRef = useRef(null);
+  const innerRef = useRef(null);
+  const [scale, setScale] = useState(1);
+  const [height, setHeight] = useState(undefined);
+  const [offset, setOffset] = useState(0);
+
+  useLayoutEffect(() => {
+    function recalc() {
+      if (!outerRef.current || !innerRef.current) return;
+      const outerW = outerRef.current.clientWidth;
+      const naturalW = innerRef.current.offsetWidth;
+      const naturalH = innerRef.current.offsetHeight;
+      const s = naturalW > outerW ? outerW / naturalW : 1;
+      setScale(s);
+      setHeight(naturalH * s);
+      // Centers the block when it's narrower than the container (desktop, s === 1).
+      // When it's being scaled down to fit (mobile, s < 1) this always resolves to 0,
+      // since the scaled width already equals outerW exactly — no offset needed.
+      setOffset(Math.max(0, (outerW - naturalW * s) / 2));
+    }
+    recalc();
+    window.addEventListener("resize", recalc);
+    return () => window.removeEventListener("resize", recalc);
+  }, [children]);
+
+  return (
+    <div ref={outerRef} style={{ width: "100%", height, overflow: "hidden" }}>
+      <div ref={innerRef} style={{ display: "inline-block", marginLeft: offset, transform: `scale(${scale})`, transformOrigin: "top left" }}>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+function ConstraintTable({ phases }) {
+  const th = { background: BRAND.ink, color: BRAND.onDark, fontFamily: "'Poppins',Arial,sans-serif", fontSize: 11, fontWeight: 800, letterSpacing: ".08em", textTransform: "uppercase", padding: "12px 18px", textAlign: "left" };
+  const td = { padding: "14px 18px", fontFamily: "'Poppins',Arial,sans-serif", fontSize: 14, color: BRAND.ink2, lineHeight: 1.5, verticalAlign: "top" };
+  const tdLabel = { ...td, color: BRAND.ink, fontWeight: 700, fontSize: 14.5, whiteSpace: "nowrap" };
+  return (
+    <div style={{ marginTop: 16 }}>
+      <FitWidth>
+        <div style={{ border: `2px solid ${BRAND.ink}`, borderRadius: 4, overflow: "hidden", width: 760 }}>
+          <table style={{ width: "100%", borderCollapse: "collapse" }}>
+            <thead>
+              <tr>
+                <th style={th}>Step</th>
+                <th style={th}>The Constraint</th>
+                <th style={th}>The Result</th>
+              </tr>
+            </thead>
+            <tbody>
+              {phases.map((ph) => (
+                <React.Fragment key={ph.phase}>
+                  <tr>
+                    <td colSpan={3} style={{ background: BRAND.ink2, color: BRAND.onDark, fontFamily: "'Poppins',Arial,sans-serif", fontWeight: 800, fontSize: 11, letterSpacing: ".1em", textTransform: "uppercase", padding: "10px 18px" }}>
+                      {ph.phase} — {ph.title}
+                      <span style={{ fontWeight: 500, textTransform: "none", letterSpacing: 0, color: BRAND.onDarkMuted, fontStyle: "italic" }}> · {ph.tagline}</span>
+                    </td>
+                  </tr>
+                  {ph.steps.map((s, i) => (
+                    <tr key={s.n} style={{ background: i % 2 === 0 ? "#fff" : BRAND.paper }}>
+                      <td style={tdLabel}>{s.n} · {s.t}</td>
+                      <td style={td}>{s.c}</td>
+                      <td style={{ ...td, color: BRAND.ink, fontWeight: 600 }}>{s.d}</td>
+                    </tr>
+                  ))}
+                </React.Fragment>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </FitWidth>
     </div>
   );
 }
