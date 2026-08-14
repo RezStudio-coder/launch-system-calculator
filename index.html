@@ -35,9 +35,6 @@ const { useState, useMemo, useRef, useEffect, useLayoutEffect } = React;
 // Interactive lead tool: questionnaire -> tailored numbers -> branded PDF
 // ============================================================
 
-// Name shown on the roadmap section. Change this one line to rename it.
-const ROADMAP_NAME = "The Launch System for New Developments";
-
 // Web3Forms access key — every submission emails the lead's answers here.
 // Get/rotate a key at https://web3forms.com
 const WEB3FORMS_ACCESS_KEY = "8a5af797-e84f-4013-97dc-34a81bfbf135";
@@ -270,14 +267,6 @@ function App() {
     const perUnitValue = isRental ? price * 12 : price;
     const securedAtTarget = targetUnits * perUnitValue;
 
-    // ---- Runway guardrail ----
-    // <3 months = window effectively closed; don't show a fantasy pace.
-    const windowClosed = runway > 0 && runway < 3;
-    const perMonthNeeded = runway > 0 ? Math.ceil(needUnits / runway) : needUnits;
-    // How far the realistic target falls short of the industry benchmark — the tell that the
-    // runway itself, not effort, is the constraint.
-    const shortOfBenchmark = benchmarkTarget - target > 0.01;
-
     const scenarios = [
       { key: "Slow", rate: rate(baseRates.slow), note: "soft market" },
       { key: "Steady", rate: steadyRate, note: "healthy market" },
@@ -298,8 +287,8 @@ function App() {
       units, price, presold, isRental,
       gross, grossBasis, rentRoll,
       monthsSinceOpening, vacantUnits,
-      runway, target, benchmarkTarget, shortOfBenchmark, targetUnits, alreadyUnits, needUnits, securedAtTarget,
-      perMonthNeeded, windowClosed, noRunway, scenarios, emptyCostMo, perUnitValue,
+      runway, target, targetUnits, alreadyUnits, needUnits, securedAtTarget,
+      noRunway, scenarios, emptyCostMo, perUnitValue,
     };
   }, [f]);
 
@@ -413,8 +402,7 @@ function Results({ f, calc, onBack }) {
   const label = calc.noRunway
     ? (calc.isRental ? "leased" : "sold")
     : (calc.isRental ? "pre-leased" : "pre-sold");
-  const targetPct = Math.round(calc.target * 100);
-  const benchmarkPct = Math.round(calc.benchmarkTarget * 100);
+  const roadmapTitle = `Your ${money(calc.gross)} ${calc.isRental ? "Lease-Up" : "Sell-Out"} Roadmap`;
 
   // Reveal the results scrolled to the constraint tables (the payoff), not wherever the
   // page happened to be scrolled to on the form — the client can scroll up for the hero
@@ -423,36 +411,6 @@ function Results({ f, calc, onBack }) {
   useEffect(() => {
     topRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   }, []);
-
-  // Traffic-light read. Two different models depending on whether the opening date has
-  // passed, and needUnits means something different in each:
-  //
-  // Pre-opening, this deliberately does NOT branch on needUnits === 0 — "achievable"
-  // is capped by runway, which makes needUnits === 0 true unconditionally once runway
-  // hits 0, for a 0%-pre-leased project exactly as much as a 90%-pre-leased one. The
-  // signal that actually distinguishes "genuinely hit the benchmark" from "ran out of
-  // runway trying" is shortOfBenchmark, comparing against the fixed industry number
-  // rather than a target that can itself shrink to 0:
-  //   green  = already at or projected to reach the full industry benchmark
-  //   red    = short of benchmark AND runway to close the gap is critical (<3 months)
-  //   yellow = short of benchmark, but still enough runway to work the gap
-  //
-  // Post-opening, there's no runway left to cap achievability, so target always equals
-  // 100% and shortOfBenchmark is trivially false — needUnits is what's meaningful now,
-  // holding actual vacancy (units - alreadyUnits) instead of a runway-capped number:
-  //   green = fully leased/sold, red = still-vacant units sitting empty right now
-  const urgency = calc.noRunway
-    ? (calc.needUnits === 0 ? "green" : "red")
-    : !calc.shortOfBenchmark
-      ? "green"
-      : calc.windowClosed
-        ? "red"
-        : "yellow";
-  const URGENCY_STYLE = {
-    red: { border: "#B23A2E", bg: "#FBEEEC", heading: "#8C2C22", icon: "⚑", label: "Time to move — start leasing now." },
-    yellow: { border: "#B8860B", bg: "#FBF6E6", heading: "#8A660A", icon: "⚠", label: "Your runway is tight." },
-    green: { border: "#2F7D5B", bg: "#EBF6F0", heading: "#215C43", icon: "✓", label: calc.noRunway ? `You're fully ${label}.` : "Your runway is healthy." },
-  }[urgency];
 
   async function downloadPDF() {
     setPdfState("working");
@@ -464,9 +422,16 @@ function Results({ f, calc, onBack }) {
       const hex = (h) => { const n = parseInt(h.slice(1), 16); return [n >> 16, (n >> 8) & 255, n & 255]; };
       // Brand is monochrome (matches rez3drenders.ca): ink/muted/line for light backgrounds,
       // onDark/onDarkMuted for text and fills placed on the ink-colored dark panels.
-      const ink = hex(BRAND.ink), muted = hex(BRAND.muted), line = hex(BRAND.line), paperFill = hex(BRAND.paper);
+      const ink = hex(BRAND.ink), muted = hex(BRAND.muted), line = hex(BRAND.line);
       const onDark = hex(BRAND.onDark), onDarkMuted = hex(BRAND.onDarkMuted);
       const faint = [170, 170, 170];
+      // Matches the on-screen KV_TONES (#FBEEEC/#B23A2E/#8C2C22 and #EBF6F0/#2F7D5B/#215C43):
+      // "pain" flags the cost of waiting, "good" flags the payoff, on the one stat card
+      // per row that's meant to be the emotional point, not just another neutral number.
+      const TONE_PDF = {
+        pain: { bg: [251, 238, 236], border: [178, 58, 46], text: [140, 44, 34] },
+        good: { bg: [235, 246, 240], border: [47, 125, 91], text: [33, 92, 67] },
+      };
 
       try { await ensurePoppinsFont(doc); } catch (e) { /* falls back to jsPDF's built-in Helvetica */ }
 
@@ -497,88 +462,67 @@ function Results({ f, calc, onBack }) {
       doc.text(`Prepared for ${f.name}${f.company ? " · " + f.company : ""}`, M, coverY + 68);
 
       let y = coverY + 100;
+
+      const colGap = 10;
+      const cardH = 58;
+      const colW = (W - M * 2 - colGap * 2) / 3;
+      // One row of 3 stat cards, one of which (tone: "pain" or "good") is drawn in color
+      // as the emotional point of that row — mirrors the on-screen KVTable highlight.
+      function statCard(x, yy, value, valueLabel, sub, tone) {
+        const t = tone ? TONE_PDF[tone] : null;
+        doc.setDrawColor(...(t ? t.border : line));
+        doc.setFillColor(...(t ? t.bg : [255, 255, 255]));
+        doc.roundedRect(x, yy, colW, cardH, 3, 3, "FD");
+        doc.setTextColor(...(t ? t.text : ink)); doc.setFont("Poppins", "bold"); doc.setFontSize(t ? 16 : 14);
+        doc.text(String(value), x + 10, yy + 22);
+        doc.setTextColor(...(t ? t.text : muted)); doc.setFont("Poppins", "bold"); doc.setFontSize(6.5);
+        doc.text(String(valueLabel).toUpperCase(), x + 10, yy + 35, { maxWidth: colW - 18 });
+        if (sub) {
+          doc.setFont("Poppins", "normal"); doc.setFontSize(6);
+          doc.setTextColor(...(t ? t.text : faint));
+          doc.text(String(sub), x + 10, yy + 47, { maxWidth: colW - 18 });
+        }
+      }
+
+      // ---- Your Project Overview ----
       doc.setTextColor(...ink); doc.setFont("Poppins", "bold"); doc.setFontSize(12);
-      doc.text(`Your project at a glance${f.city ? ", " + f.city : ""}`, M, y);
+      doc.text(`Your project overview${f.city ? ", " + f.city : ""}`, M, y);
       y += 8; doc.setDrawColor(...line); doc.line(M, y, W - M, y); y += 16;
 
-      const steady = calc.scenarios[1];
-      // needUnits is reliably 0 only when genuinely on target now (post-opening it's
-      // real current vacancy; pre-opening it only reaches 0 when not shortOfBenchmark —
-      // see the on-screen urgency comment for why that held true), so a plain > 0 check
-      // is safe here without a separate shortOfBenchmark branch.
-      const paceLabel = calc.needUnits > 0 ? `${steady.months} mo at ${steady.rate}/mo` : "on track";
-      const stats = [
-        [money(calc.gross), calc.isRental ? "Annual rent roll" : "Total value at stake", calc.noRunway ? "already on the line" : `at stake, ${calc.runway} mo to secure`],
-        [`${calc.units} units`, "Project size", f.city || ""],
-        [calc.noRunway ? `${calc.monthsSinceOpening} mo` : `${calc.runway} mo`, calc.noRunway ? "Time since opening" : "Runway to opening", calc.noRunway ? "now in lease-up" : calc.runway <= 3 ? "not much time left" : "time to lock in demand"],
-        [`${targetPct}% ${label}`, "Recommended target", calc.noRunway ? "full occupancy" : (calc.shortOfBenchmark ? `realistic given runway, vs ${benchmarkPct}% benchmark` : "typical at opening")],
-        [`${calc.needUnits} units`, calc.noRunway ? "Still vacant" : `Still needed to hit ${targetPct}%`, `${calc.targetUnits} target, ${calc.alreadyUnits} committed`],
-        [paceLabel, "Realistic pace to target", "healthy sales pace"],
+      const overviewStats = [
+        [`${calc.vacantUnits} units`, "Units left to lease", `${calc.alreadyUnits} of ${calc.units} already ${label}`, null],
+        [`$${Math.round(calc.price).toLocaleString()}${calc.isRental ? "/mo" : ""}`, calc.isRental ? "Avg rent / unit / mo" : "Avg price / unit", `Across ${calc.units} units`, null],
+        [
+          `${money(calc.emptyCostMo)}/mo`,
+          calc.noRunway ? (calc.isRental ? "Monthly cost of vacancy" : "Monthly cost of unsold units") : (calc.isRental ? "Monthly cost until fully leased" : "Monthly cost until fully sold"),
+          calc.noRunway ? `${calc.vacantUnits} vacant units sitting empty` : "If you open with zero units leased",
+          "pain",
+        ],
       ];
-      const cardH = 54, colGap = 10, rowGap = 8;
-      const colW = (W - M * 2 - colGap * 2) / 3;
-      stats.forEach((s, i) => {
-        const col = i % 3, row = Math.floor(i / 3);
-        const x = M + col * (colW + colGap), yy = y + row * (cardH + rowGap);
-        doc.setDrawColor(...line); doc.setFillColor(255, 255, 255); doc.roundedRect(x, yy, colW, cardH, 3, 3, "S");
-        doc.setTextColor(...ink); doc.setFont("Poppins", "bold"); doc.setFontSize(14); doc.text(String(s[0]), x + 10, yy + 20);
-        doc.setTextColor(...muted); doc.setFont("Poppins", "bold"); doc.setFontSize(6.5); doc.text(String(s[1]).toUpperCase(), x + 10, yy + 33, { maxWidth: colW - 18 });
-        if (s[2]) { doc.setFont("Poppins", "normal"); doc.setFontSize(6); doc.setTextColor(...faint); doc.text(String(s[2]), x + 10, yy + 45, { maxWidth: colW - 18 }); }
-      });
-      y += cardH * 2 + rowGap + 14;
+      overviewStats.forEach((s, i) => statCard(M + i * (colW + colGap), y, s[0], s[1], s[2], s[3]));
+      y += cardH + 24;
 
-      // Guardrail note (if window closed, or post-opening with vacancy left) — one
-      // condensed line. needUnits > 0 is a reliable "still work to do" signal in both
-      // modes now (see the paceLabel comment above).
-      if ((calc.windowClosed || calc.noRunway) && calc.needUnits > 0) {
-        doc.setFillColor(...paperFill); doc.setDrawColor(...ink); doc.roundedRect(M, y, W - M * 2, 32, 3, 3, "FD");
-        doc.setTextColor(...ink); doc.setFont("Poppins", "bold"); doc.setFontSize(7.5);
-        doc.text("TIME TO MOVE — START LEASING NOW", M + 12, y + 13);
-        doc.setFont("Poppins", "normal"); doc.setFontSize(7.5);
-        doc.text(`Every month these stay unsold costs ${money(calc.emptyCostMo)}. Start the Launch System today.`, M + 12, y + 25);
-        y += 42;
-      }
+      // ---- Your Lease-Up Potential ----
+      doc.setTextColor(...ink); doc.setFont("Poppins", "bold"); doc.setFontSize(12);
+      doc.text("Your lease-up potential", M, y);
+      y += 8; doc.setDrawColor(...line); doc.line(M, y, W - M, y); y += 16;
 
-      // Insight line
-      doc.setFillColor(...paperFill); doc.setDrawColor(...ink); doc.roundedRect(M, y, W - M * 2, 38, 3, 3, "FD");
-      doc.setTextColor(...ink); doc.setFont("Poppins", "normal"); doc.setFontSize(9.5);
-      const secured = money(calc.securedAtTarget) + (calc.isRental ? " first year rent" : "");
-      const insight = calc.noRunway
-        ? `At full occupancy, you secure ${secured} in total commitments,`
-        : `At ${targetPct}% ${label}, you secure ${secured} in commitments before opening,`;
-      const insight2 = calc.noRunway
-        ? `and cut roughly ${money(calc.emptyCostMo)}/mo in ongoing carrying cost on vacant units.`
-        : `and cut roughly ${money(calc.emptyCostMo)}/mo in carrying cost on unsold units.`;
-      doc.text(insight, M + 12, y + 16); doc.text(insight2, M + 12, y + 29);
-      y += 50;
-
-      // Pace scenarios: Slow / Steady / Hot
-      if (calc.needUnits > 0) {
-        doc.setTextColor(...ink); doc.setFont("Poppins", "bold"); doc.setFontSize(8);
-        doc.text(`HOW LONG ${calc.needUnits} UNITS TAKES TO MOVE`, M, y);
-        y += 16;
-        const sc = calc.scenarios;
-        const scW = (W - M * 2 - colGap * 2) / 3;
-        const scH = 44;
-        sc.forEach((s, i) => {
-          const x = M + i * (scW + colGap);
-          const mid = i === 1;
-          doc.setFillColor(...(mid ? [232, 232, 232] : [255, 255, 255]));
-          doc.setDrawColor(...(mid ? ink : line));
-          doc.roundedRect(x, y, scW, scH, 3, 3, "FD");
-          doc.setTextColor(...(mid ? ink : muted)); doc.setFont("Poppins", "bold"); doc.setFontSize(7);
-          doc.text(s.key.toUpperCase(), x + 10, y + 13);
-          doc.setTextColor(...ink); doc.setFont("Poppins", "bold"); doc.setFontSize(14);
-          doc.text(`${s.months} mo`, x + 10, y + 29);
-          doc.setTextColor(...muted); doc.setFont("Poppins", "normal"); doc.setFontSize(6.5);
-          doc.text(`${s.rate} units/mo, ${s.note}`, x + 10, y + 39);
-        });
-        y += scH + 16;
-      }
+      const potentialStats = [
+        [`${slow.rate}–${hot.rate} units/mo`, "Expected leasing pace", `Typically ~${steady.rate}/mo at a steady pace`, null],
+        [`${steady.months} mo`, "Runway to full (estimated)", `Slow: ${slow.months} mo · Hot: ${hot.months} mo`, null],
+        [
+          money(calc.gross),
+          calc.isRental ? "Annual rent roll at full occupancy" : "Total value at full sell-out",
+          calc.isRental ? "Once every unit is leased" : "Once every unit is sold",
+          "good",
+        ],
+      ];
+      potentialStats.forEach((s, i) => statCard(M + i * (colW + colGap), y, s[0], s[1], s[2], s[3]));
+      y += cardH + 20;
 
       // Roadmap — titles only, no descriptions, to keep this to one page
       doc.setTextColor(...ink); doc.setFont("Poppins", "bold"); doc.setFontSize(12);
-      doc.text(ROADMAP_NAME, M, y); y += 6;
+      doc.text(roadmapTitle, M, y); y += 6;
       doc.setDrawColor(...line); doc.line(M, y, W - M, y); y += 16;
 
       PHASES.forEach((ph) => {
@@ -631,103 +575,64 @@ function Results({ f, calc, onBack }) {
     }
   }
 
-  const steady = calc.scenarios[1];
+  const [slow, steady, hot] = calc.scenarios;
 
   return (
     <div style={{ marginTop: 26 }} ref={topRef}>
 
       {/* ===================== SECTION 1: YOUR PROJECT CONSTRAINTS ===================== */}
-      <SectionLabel sub="Where this project stands today — and what waiting is costing you.">Your Project Constraints</SectionLabel>
+      <SectionLabel sub="Where this project stands today — and what waiting is costing you.">Your Project Overview</SectionLabel>
 
       <KVTable
         rows={[
           {
-            label: calc.isRental ? "Rent / Unit / mo" : "Price / Unit",
+            label: "Units Left to Lease",
+            value: `${calc.vacantUnits} units`,
+            sub: `${calc.alreadyUnits} of ${calc.units} already ${label}`,
+          },
+          {
+            label: calc.isRental ? "Avg Rent / Unit / Mo" : "Avg Price / Unit",
             value: `$${Math.round(calc.price).toLocaleString()}${calc.isRental ? "/mo" : ""}`,
             sub: `Across ${calc.units} unit${calc.units === 1 ? "" : "s"}`,
           },
           {
-            label: calc.noRunway ? "Time Since Opening" : "Runway to Opening",
-            value: calc.noRunway ? `${calc.monthsSinceOpening} mo` : `${calc.runway} mo`,
-            sub: calc.noRunway ? "Now in lease-up" : calc.runway <= 3 ? "Almost out of time" : "Time to lock in demand",
-          },
-          {
-            label: calc.isRental ? "Annual Rent Roll" : "Total Value at Stake",
-            value: money(calc.gross),
-            sub: calc.isRental
-              ? (calc.noRunway ? "Full annual rent roll at 100% occupancy" : `${money(calc.emptyCostMo)}/mo × 12`)
-              : calc.grossBasis,
-          },
-          {
-            label: calc.noRunway ? "Cost of Vacancy" : "Cost of Doing Nothing",
+            label: calc.noRunway
+              ? (calc.isRental ? "Monthly Cost of Vacancy" : "Monthly Cost of Unsold Units")
+              : (calc.isRental ? "Monthly Cost Until Fully Leased" : "Monthly Cost Until Fully Sold"),
             value: `${money(calc.emptyCostMo)}/mo`,
             sub: calc.noRunway
               ? (calc.isRental ? `Rent lost every month your ${calc.vacantUnits} vacant unit${calc.vacantUnits === 1 ? "" : "s"} sit empty` : `Financing drag every month your ${calc.vacantUnits} unsold unit${calc.vacantUnits === 1 ? "" : "s"} sit`)
               : (calc.isRental ? "Total rent lost per month if you open with zero units pre-leased" : "Total financing cost per month if you open with zero units pre-sold"),
+            highlight: "pain",
           },
         ]}
-        bottomLabel={URGENCY_STYLE.label}
-        bottomStyle={URGENCY_STYLE}
-        bottomText={
-          <>
-            {urgency === "red" && (
-              // Post-opening (noRunway), needUnits holds real current vacancy, so this can
-              // state it directly. Pre-opening, red is only reachable when shortOfBenchmark
-              // is true and windowClosed is the only remaining case (see urgency comment
-              // above) — needUnits there is guaranteed > 0, never a "need 0 more" non-sequitur.
-              calc.noRunway
-                ? <>You have <b>{calc.vacantUnits} unit{calc.vacantUnits === 1 ? "" : "s"}</b> still vacant post-opening — that's <b>{money(calc.emptyCostMo)}</b> {calc.isRental ? "in lost rent" : "in financing drag"} every month they sit empty. Start the Launch System now to fill them.</>
-                : <>Only {calc.runway} mo left — you need <b>{calc.needUnits} more units</b> to hit your <b>{targetPct}% {label}</b> target. Start the roadmap below today.</>
-            )}
-            {urgency === "yellow" && (
-              <>With {calc.runway} months left, a realistic pace caps you at <b>{targetPct}% {label}</b> — short of the {benchmarkPct}% benchmark. Start now before that gap grows.</>
-            )}
-            {urgency === "green" && (
-              calc.noRunway
-                ? <>Every unit is <b>{label}</b> — the Launch System keeps demand flowing for turnover and renewals.</>
-                : calc.needUnits === 0
-                  ? <>You're already at or above your <b>{targetPct}% {label}</b> target — the Launch System keeps that momentum going.</>
-                  : <>A steady pace comfortably hits your <b>{targetPct}% {label}</b> target in {steady.months} mo, with room to spare. Start now to bank it early.</>
-            )}
-          </>
-        }
       />
 
-      {/* ===================== SECTION 2: YOUR TAILORED ROADMAP ===================== */}
-      <SectionLabel sub="What the Launch System gets you, step by step.">Your Tailored Roadmap</SectionLabel>
+      {/* ===================== SECTION 2: YOUR LEASE-UP POTENTIAL ===================== */}
+      <SectionLabel sub="What the Launch System gets you, step by step.">Your Lease-Up Potential</SectionLabel>
 
       <KVTable
         rows={[
           {
-            label: calc.noRunway ? "Lease-Up Target" : `Recommended ${label} target`,
-            value: `${targetPct}%`,
-            sub: calc.noRunway ? "Full occupancy" : (calc.shortOfBenchmark ? `vs ${benchmarkPct}% benchmark` : "Typical target at opening"),
+            label: "Expected Leasing Pace",
+            value: `${slow.rate}–${hot.rate} units/mo`,
+            sub: `Typically ~${steady.rate}/mo at a steady pace`,
           },
           {
-            label: calc.noRunway ? "Units Still Vacant" : "Units Still Needed",
-            value: `${calc.needUnits} units`,
-            sub: calc.noRunway ? `${calc.units} total, ${calc.alreadyUnits} ${label}` : `${calc.targetUnits} target, ${calc.alreadyUnits} committed`,
+            label: "Runway to Full (Estimated)",
+            value: `${steady.months} mo`,
+            sub: `Slow: ${slow.months} mo · Hot: ${hot.months} mo`,
           },
-          ...(calc.needUnits > 0
-            ? [{
-                label: "Pace to Get There",
-                value: `${steady.rate} units/mo → ${steady.months} mo`,
-                sub: `Slow: ${calc.scenarios[0].months} mo · Hot: ${calc.scenarios[2].months} mo`,
-              }]
-            : []),
+          {
+            label: calc.isRental ? "Annual Rent Roll at Full Occupancy" : "Total Value at Full Sell-Out",
+            value: money(calc.gross),
+            sub: calc.isRental ? "Once every unit is leased" : "Once every unit is sold",
+            highlight: "good",
+          },
         ]}
-        bottomLabel="The bottom line"
-        bottomStyle={{ bg: BRAND.paper, border: BRAND.ink2, heading: BRAND.ink }}
-        bottomText={
-          calc.needUnits > 0
-            ? (calc.noRunway
-                ? <>Average <b>{steady.rate} units/mo</b> fills your remaining <b>{calc.needUnits} units</b> in <b>{steady.months} mo</b> — worth <b>{money(calc.securedAtTarget - calc.alreadyUnits * calc.perUnitValue)}</b> in additional {calc.isRental ? "annual rent" : "sales"}.</>
-                : <>Average <b>{steady.rate} units/mo</b> gets you to <b>{targetPct}% {label}</b> in <b>{steady.months} mo</b> — locking in <b>{money(calc.securedAtTarget)}</b> before opening.</>)
-            : null
-        }
       />
 
-      <h2 style={{ fontSize: 24, fontWeight: 700, margin: "34px 0 6px", fontFamily: "'Poppins', Arial, sans-serif", textAlign: "center" }}>{ROADMAP_NAME}</h2>
+      <h2 style={{ fontSize: 24, fontWeight: 700, margin: "34px 0 6px", fontFamily: "'Poppins', Arial, sans-serif", textAlign: "center" }}>{roadmapTitle}</h2>
       <p style={{ fontFamily: "'Poppins',Arial,sans-serif", fontSize: 14, color: BRAND.muted, marginTop: 0, marginBottom: 4, textAlign: "center" }}>
         Phase 1 opens the pipeline. Phase 2 converts it. Phase 3 keeps it fed.
       </p>
@@ -820,22 +725,32 @@ function SectionLabel({ children, sub }) {
 
 // Compact key-value table: left column = black label cell, right column = value + sub-note.
 // An optional colored "bottom line" band (traffic-light urgency, or a plain insight) closes it out.
+// highlight: "pain" (red, the cost of waiting) or "good" (green, the payoff) — used to
+// make one row visually pop as the emotional point of the table instead of reading as
+// just another neutral stat.
+const KV_TONES = {
+  pain: { bg: "#FBEEEC", color: "#8C2C22" },
+  good: { bg: "#EBF6F0", color: "#215C43" },
+};
 function KVTable({ rows, bottomLabel, bottomText, bottomStyle }) {
   return (
     <div style={{ border: `2px solid ${BRAND.ink}`, borderRadius: 4, overflow: "hidden", marginTop: 16, background: "#fff" }}>
       <table style={{ width: "100%", borderCollapse: "collapse" }}>
         <tbody>
-          {rows.map((r, i) => (
-            <tr key={i}>
-              <td className="kvLabel" style={{ borderTop: i === 0 ? "none" : `1px solid rgba(255,255,255,0.14)` }}>
-                {r.label}
-              </td>
-              <td style={{ padding: "14px 18px", verticalAlign: "middle", borderTop: i === 0 ? "none" : `1px solid ${BRAND.line}` }}>
-                <span style={{ fontFamily: "'Poppins',Arial,sans-serif", fontWeight: 700, fontSize: 17, color: BRAND.ink }}>{r.value}</span>
-                {r.sub && <div style={{ fontFamily: "'Poppins',Arial,sans-serif", fontSize: 12, color: BRAND.muted, marginTop: 3 }}>{r.sub}</div>}
-              </td>
-            </tr>
-          ))}
+          {rows.map((r, i) => {
+            const tone = r.highlight ? KV_TONES[r.highlight] : null;
+            return (
+              <tr key={i}>
+                <td className="kvLabel" style={{ borderTop: i === 0 ? "none" : `1px solid rgba(255,255,255,0.14)` }}>
+                  {r.label}
+                </td>
+                <td style={{ padding: "14px 18px", verticalAlign: "middle", borderTop: i === 0 ? "none" : `1px solid ${BRAND.line}`, background: tone ? tone.bg : undefined }}>
+                  <span style={{ fontFamily: "'Poppins',Arial,sans-serif", fontWeight: 800, fontSize: tone ? 24 : 17, color: tone ? tone.color : BRAND.ink }}>{r.value}</span>
+                  {r.sub && <div style={{ fontFamily: "'Poppins',Arial,sans-serif", fontSize: 12, color: tone ? tone.color : BRAND.muted, opacity: tone ? 0.85 : 1, marginTop: 3 }}>{r.sub}</div>}
+                </td>
+              </tr>
+            );
+          })}
         </tbody>
       </table>
       {bottomText && (
