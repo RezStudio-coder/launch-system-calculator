@@ -28,7 +28,7 @@
 
 <script type="text/babel" data-presets="react">
 
-const { useState, useMemo, useRef, useEffect } = React;
+const { useState, useMemo, useRef, useEffect, useLayoutEffect } = React;
 
 // ============================================================
 // REZ 3D — The Vacancy Cost Calculator
@@ -90,12 +90,12 @@ const BRAND = {
 // an estimated unit-type count (studio/1BR/2BR/etc.) derived from total units. The form
 // doesn't ask about unit mix, so this is a size-based proxy, not a number the lead gave us,
 // the same kind of reasonable estimate the pace/timeline numbers elsewhere already are.
+// Kept to 3 plain tiers (small/medium/large) so the logic is easy to state outright in the
+// interior render set's own description, not just a number that appears from nowhere.
 function estimateUnitTypes(units) {
-  if (units < 20) return 1;
-  if (units < 50) return 2;
-  if (units < 100) return 3;
-  if (units < 200) return 4;
-  return 5;
+  if (units < 50) return 1;
+  if (units < 150) return 2;
+  return 3;
 }
 function exteriorShotCount(units) {
   if (units < 20) return 4;
@@ -115,10 +115,30 @@ const PHASES = [
     tagline: "build these first",
     blurb: "Nothing markets until these exist. Renders come before everything. The whole funnel is built from them.",
     steps: [
-      { n: "01", t: "Exterior render set", spec: (calc) => `${exteriorShotCount(calc.units)} shots`, d: "2 hero angles, 2 street-context, 1 aerial, 1 amenity/courtyard. This is the sales anchor. Do it first, at Architectural Digest standard." },
-      { n: "02", t: "Interior render set", spec: (calc) => `${estimateUnitTypes(calc.units) * 3} shots min.`, d: "Minimum 1 one-bedroom and 1 two-bedroom unit type, 3 rooms each (living, kitchen, primary bed): the layouts buyers actually choose between. Add more unit types as your mix requires. Build after exteriors lock the look." },
-      { n: "03", t: "Cinematic showreel", spec: "1 video · 45–60s", d: "Cut from the renders above, no separate shoot. One master, plus 3 vertical clips for social. Built last in this phase, once stills are approved." },
-      { n: "04", t: "VR tour + 3D floor plans", spec: (calc) => { const t = estimateUnitTypes(calc.units); return `${t} tour${t === 1 ? "" : "s"} · ${t} plan${t === 1 ? "" : "s"} min.`; }, d: "One walkable VR tour and one clean 3D plan per unit type, one-bed and two-bed at minimum. Lets buyers explore before a wall exists." },
+      { n: "01", t: "Exterior render set", spec: (calc) => `${exteriorShotCount(calc.units)} shots`, d: [
+        "2 hero angles",
+        "2 street-context shots",
+        "1 aerial shot",
+        "1 amenity or courtyard shot",
+        "Do this first, at Architectural Digest standard: it's the sales anchor",
+      ] },
+      { n: "02", t: "Interior render set", spec: (calc) => `${estimateUnitTypes(calc.units) * 3} shots min.`, d: [
+        "Small buildings, under 50 units: minimum 1 unit type in full interior detail",
+        "Medium buildings, 50 to 150 units: minimum 2 unit types in full interior detail",
+        "Large buildings, over 150 units: minimum 3 unit types in full interior detail",
+        "3 rooms each: living, kitchen, primary bed",
+        "Build after exteriors lock the look",
+      ] },
+      { n: "03", t: "Cinematic showreel", spec: "1 video · 45–60s", d: [
+        "Cut from the renders above: no separate shoot",
+        "One master video, plus 3 vertical clips for social",
+        "Built last in this phase, once stills are approved",
+      ] },
+      { n: "04", t: "VR tour + 3D floor plans", spec: (calc) => { const t = estimateUnitTypes(calc.units); return `${t} tour${t === 1 ? "" : "s"} · ${t} plan${t === 1 ? "" : "s"} min.`; }, d: [
+        "One walkable VR tour and one clean 3D plan per unit type",
+        "One-bed and two-bed at minimum",
+        "Lets buyers explore before a wall exists",
+      ] },
     ],
   },
   {
@@ -643,44 +663,48 @@ function Results({ f, calc, onBack }) {
       {/* ===================== SECTION 1: YOUR VACANCY COST ===================== */}
       <SectionLabel sub="What empty units are costing you, today and if lease-up runs long.">Your Vacancy Cost</SectionLabel>
 
-      <div className="grid3" style={{ marginTop: 16 }}>
-        {calc.vacancyScenarios.map((s) => (
-          <div key={s.pct} style={{ background: "#fff", border: `2px solid ${BRAND.ink}`, borderRadius: 4, padding: "16px 14px", textAlign: "center" }}>
-            <div style={{ fontFamily: "'Poppins',Arial,sans-serif", fontSize: 11, fontWeight: 800, letterSpacing: ".08em", textTransform: "uppercase", color: BRAND.muted }}>
-              {Math.round(s.pct * 100)}% Vacant
-            </div>
-            <div style={{ fontFamily: "'Poppins',Arial,sans-serif", fontWeight: 800, fontSize: 22, color: BRAND.ink, margin: "6px 0 2px" }}>
-              {money(s.costMo)}/mo
-            </div>
-            <div style={{ fontFamily: "'Poppins',Arial,sans-serif", fontSize: 11, color: BRAND.muted }}>
-              {s.units} of {calc.units} units
-            </div>
+      <FitWidth>
+        <div style={{ width: 760 }}>
+          <div className="grid3" style={{ marginTop: 16 }}>
+            {calc.vacancyScenarios.map((s) => (
+              <div key={s.pct} style={{ background: "#fff", border: `2px solid ${BRAND.ink}`, borderRadius: 4, padding: "16px 14px", textAlign: "center" }}>
+                <div style={{ fontFamily: "'Poppins',Arial,sans-serif", fontSize: 11, fontWeight: 800, letterSpacing: ".08em", textTransform: "uppercase", color: BRAND.muted }}>
+                  {Math.round(s.pct * 100)}% Vacant
+                </div>
+                <div style={{ fontFamily: "'Poppins',Arial,sans-serif", fontWeight: 800, fontSize: 22, color: BRAND.ink, margin: "6px 0 2px" }}>
+                  {money(s.costMo)}/mo
+                </div>
+                <div style={{ fontFamily: "'Poppins',Arial,sans-serif", fontSize: 11, color: BRAND.muted }}>
+                  {s.units} of {calc.units} units
+                </div>
+              </div>
+            ))}
           </div>
-        ))}
-      </div>
 
-      <KVTable
-        rows={[
-          {
-            label: calc.isRental ? "Monthly Lost Rent" : "Monthly Carrying Cost",
-            value: `${money(calc.emptyCostMo)}/mo`,
-            sub: calc.noRunway
-              ? (calc.isRental ? `Rent lost every month your ${calc.vacantUnits} vacant unit${calc.vacantUnits === 1 ? "" : "s"} sit empty` : `Financing drag every month your ${calc.vacantUnits} unsold unit${calc.vacantUnits === 1 ? "" : "s"} sit`)
-              : (calc.isRental ? "Total rent lost per month if you open with zero units pre-leased" : "Total financing cost per month if you open with zero units pre-sold"),
-            highlight: "pain",
-          },
-          {
-            label: calc.isRental ? "Cost of a 3-Month Slower Lease-Up" : "Cost of a 3-Month Slower Sell-Out",
-            value: money(calc.emptyCostMo * 3),
-            sub: "If it takes 3 months longer than planned",
-          },
-          {
-            label: calc.isRental ? "Cost of a 6-Month Slower Lease-Up" : "Cost of a 6-Month Slower Sell-Out",
-            value: money(calc.emptyCostMo * 6),
-            sub: "If it takes 6 months longer than planned",
-          },
-        ]}
-      />
+          <KVTable
+            rows={[
+              {
+                label: calc.isRental ? "Monthly Lost Rent" : "Monthly Carrying Cost",
+                value: `${money(calc.emptyCostMo)}/mo`,
+                sub: calc.noRunway
+                  ? (calc.isRental ? `Rent lost every month your ${calc.vacantUnits} vacant unit${calc.vacantUnits === 1 ? "" : "s"} sit empty` : `Financing drag every month your ${calc.vacantUnits} unsold unit${calc.vacantUnits === 1 ? "" : "s"} sit`)
+                  : (calc.isRental ? "Total rent lost per month if you open with zero units pre-leased" : "Total financing cost per month if you open with zero units pre-sold"),
+                highlight: "pain",
+              },
+              {
+                label: calc.isRental ? "Cost of a 3-Month Slower Lease-Up" : "Cost of a 3-Month Slower Sell-Out",
+                value: money(calc.emptyCostMo * 3),
+                sub: "If it takes 3 months longer than planned",
+              },
+              {
+                label: calc.isRental ? "Cost of a 6-Month Slower Lease-Up" : "Cost of a 6-Month Slower Sell-Out",
+                value: money(calc.emptyCostMo * 6),
+                sub: "If it takes 6 months longer than planned",
+              },
+            ]}
+          />
+        </div>
+      </FitWidth>
 
       {/* ===================== SECTION 2: YOUR PRE-LEASING PLAN ===================== */}
       <SectionLabel sub="What needs to be in place before opening day, and when to build it.">Your Pre-Leasing Plan</SectionLabel>
@@ -807,44 +831,95 @@ function KVTable({ rows, bottomLabel, bottomText, bottomStyle }) {
   );
 }
 
+// Renders children at their natural (desktop) width, then scales the whole block down
+// uniformly to fit whatever width it's given — so mobile shows the exact same layout and
+// line-wrapping as desktop, just smaller, instead of the browser reflowing text into a
+// denser, more cramped shape at narrow widths.
+function FitWidth({ children }) {
+  const outerRef = useRef(null);
+  const innerRef = useRef(null);
+  const [scale, setScale] = useState(1);
+  const [height, setHeight] = useState(undefined);
+  const [offset, setOffset] = useState(0);
+
+  useLayoutEffect(() => {
+    function recalc() {
+      if (!outerRef.current || !innerRef.current) return;
+      const outerW = outerRef.current.clientWidth;
+      const naturalW = innerRef.current.offsetWidth;
+      const naturalH = innerRef.current.offsetHeight;
+      const s = naturalW > outerW ? outerW / naturalW : 1;
+      setScale(s);
+      setHeight(naturalH * s);
+      // Centers the block when it's narrower than the container (desktop, s === 1).
+      // When it's being scaled down to fit (mobile, s < 1) this always resolves to 0,
+      // since the scaled width already equals outerW exactly — no offset needed.
+      setOffset(Math.max(0, (outerW - naturalW * s) / 2));
+    }
+    recalc();
+    window.addEventListener("resize", recalc);
+    return () => window.removeEventListener("resize", recalc);
+  }, [children]);
+
+  return (
+    <div ref={outerRef} style={{ width: "100%", height, overflow: "hidden" }}>
+      <div ref={innerRef} style={{ display: "inline-block", marginLeft: offset, transform: `scale(${scale})`, transformOrigin: "top left" }}>
+        {children}
+      </div>
+    </div>
+  );
+}
+
 // Dark, numbered-phase timeline: each phase is a circle + title + week range, a one-line
 // "why this order" blurb, then its steps as bordered cards with a blue deliverable-spec
 // tag. A step's spec can be a fixed string or a fn(calc) — used for the plan selector,
 // whose unit count should match the lead's actual project, not a placeholder number.
+// A step's d can be a plain string (renders as a paragraph) or an array (renders as
+// bullets) — Phase 1 uses bullets so its per-shot breakdown reads as a checklist.
 const PLAN_ACCENT = "#E8A94A";
 function PreLeasingPlan({ phases, calc }) {
   return (
     <div style={{ background: BRAND.ink, borderRadius: 8, padding: "28px 20px", marginTop: 16 }}>
-      {phases.map((ph, pi) => (
-        <div key={ph.phase} style={{ marginBottom: pi === phases.length - 1 ? 22 : 30, paddingTop: pi === 0 ? 0 : 24, borderTop: pi === 0 ? "none" : "1px solid rgba(255,255,255,0.1)" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-            <span style={{ width: 26, height: 26, borderRadius: "50%", background: PLAN_ACCENT, color: "#2B1B00", display: "inline-flex", alignItems: "center", justifyContent: "center", fontFamily: "'Poppins',Arial,sans-serif", fontWeight: 800, fontSize: 12.5, flexShrink: 0 }}>
-              {pi + 1}
-            </span>
-            <span style={{ fontFamily: "'Poppins',Arial,sans-serif", fontWeight: 700, fontSize: 17, color: "#fff" }}>{ph.title}</span>
-            <span style={{ fontFamily: "'Poppins',Arial,sans-serif", fontSize: 12.5, color: "rgba(255,255,255,0.55)" }}>· {ph.weeks} · {ph.tagline}</span>
-          </div>
-          <div style={{ fontFamily: "'Poppins',Arial,sans-serif", fontSize: 13.5, color: "rgba(255,255,255,0.72)", lineHeight: 1.5, margin: "6px 0 14px 36px" }}>
-            {ph.blurb}
-          </div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-            {ph.steps.map((s) => (
-              <div key={s.n} style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.16)", borderRadius: 6, padding: "14px 16px", boxShadow: "0 1px 0 rgba(255,255,255,0.04) inset" }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 10, flexWrap: "wrap" }}>
-                  <span style={{ fontFamily: "'Poppins',Arial,sans-serif", fontWeight: 700, fontSize: 14.5, color: "#fff" }}>{s.n} · {s.t}</span>
-                  <span style={{ fontFamily: "'Poppins',Arial,sans-serif", fontWeight: 800, fontSize: 12, color: PLAN_ACCENT, whiteSpace: "nowrap", background: "rgba(232,169,74,0.16)", padding: "3px 8px", borderRadius: 999 }}>
-                    {typeof s.spec === "function" ? s.spec(calc) : s.spec}
-                  </span>
-                </div>
-                <div style={{ fontFamily: "'Poppins',Arial,sans-serif", fontSize: 13, color: "rgba(255,255,255,0.68)", lineHeight: 1.55, marginTop: 6 }}>
-                  {s.d}
-                </div>
+      <FitWidth>
+        <div style={{ width: 760 }}>
+          {phases.map((ph, pi) => (
+            <div key={ph.phase} style={{ marginBottom: pi === phases.length - 1 ? 0 : 30, paddingTop: pi === 0 ? 0 : 24, borderTop: pi === 0 ? "none" : "1px solid rgba(255,255,255,0.1)" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+                <span style={{ width: 26, height: 26, borderRadius: "50%", background: PLAN_ACCENT, color: "#2B1B00", display: "inline-flex", alignItems: "center", justifyContent: "center", fontFamily: "'Poppins',Arial,sans-serif", fontWeight: 800, fontSize: 12.5, flexShrink: 0 }}>
+                  {pi + 1}
+                </span>
+                <span style={{ fontFamily: "'Poppins',Arial,sans-serif", fontWeight: 700, fontSize: 17, color: "#fff" }}>{ph.title}</span>
+                <span style={{ fontFamily: "'Poppins',Arial,sans-serif", fontSize: 12.5, color: "rgba(255,255,255,0.55)" }}>· {ph.weeks} · {ph.tagline}</span>
               </div>
-            ))}
-          </div>
+              <div style={{ fontFamily: "'Poppins',Arial,sans-serif", fontSize: 13.5, color: "rgba(255,255,255,0.72)", lineHeight: 1.5, margin: "6px 0 14px 36px" }}>
+                {ph.blurb}
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                {ph.steps.map((s) => (
+                  <div key={s.n} style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.16)", borderRadius: 6, padding: "14px 16px", boxShadow: "0 1px 0 rgba(255,255,255,0.04) inset" }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 10, flexWrap: "wrap" }}>
+                      <span style={{ fontFamily: "'Poppins',Arial,sans-serif", fontWeight: 700, fontSize: 14.5, color: "#fff" }}>{s.n} · {s.t}</span>
+                      <span style={{ fontFamily: "'Poppins',Arial,sans-serif", fontWeight: 800, fontSize: 12, color: PLAN_ACCENT, whiteSpace: "nowrap", background: "rgba(232,169,74,0.16)", padding: "3px 8px", borderRadius: 999 }}>
+                        {typeof s.spec === "function" ? s.spec(calc) : s.spec}
+                      </span>
+                    </div>
+                    {Array.isArray(s.d) ? (
+                      <ul style={{ margin: "8px 0 0", paddingLeft: 18, fontFamily: "'Poppins',Arial,sans-serif", fontSize: 13, color: "rgba(255,255,255,0.68)", lineHeight: 1.55 }}>
+                        {s.d.map((line, i) => <li key={i} style={{ marginTop: i === 0 ? 0 : 3 }}>{line}</li>)}
+                      </ul>
+                    ) : (
+                      <div style={{ fontFamily: "'Poppins',Arial,sans-serif", fontSize: 13, color: "rgba(255,255,255,0.68)", lineHeight: 1.55, marginTop: 6 }}>
+                        {s.d}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
         </div>
-      ))}
-      <div style={{ background: "rgba(232,169,74,0.14)", border: `1px solid rgba(232,169,74,0.35)`, borderRadius: 6, padding: "16px 18px", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
+      </FitWidth>
+      <div style={{ background: "rgba(232,169,74,0.14)", border: `1px solid rgba(232,169,74,0.35)`, borderRadius: 6, padding: "16px 18px", marginTop: 22, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
         <div>
           <div style={{ fontFamily: "'Poppins',Arial,sans-serif", fontWeight: 700, fontSize: 14, color: "#F0C775" }}>
             That's the full recipe: {TOTAL_DELIVERABLES} deliverables, in order.
