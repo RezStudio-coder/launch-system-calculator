@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>The Launch System Roadmap — Rez 3D</title>
+<title>The Vacancy Cost Calculator | Rez 3D</title>
 
 <!-- Brand font, matching acquisition.com: Poppins for everything, hierarchy via weight -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -28,10 +28,10 @@
 
 <script type="text/babel" data-presets="react">
 
-const { useState, useMemo, useRef, useEffect, useLayoutEffect } = React;
+const { useState, useMemo, useRef, useEffect } = React;
 
 // ============================================================
-// REZ 3D — The Launch System Roadmap
+// REZ 3D — The Vacancy Cost Calculator
 // Interactive lead tool: questionnaire -> tailored numbers -> branded PDF
 // ============================================================
 
@@ -48,8 +48,8 @@ function notifyLead(f, calc) {
       headers: { "Content-Type": "application/json", Accept: "application/json" },
       body: JSON.stringify({
         access_key: WEB3FORMS_ACCESS_KEY,
-        subject: `New Launch System Roadmap lead: ${f.company || f.name}`,
-        from_name: "Launch System Roadmap Tool",
+        subject: `New Vacancy Cost Calculator lead: ${f.company || f.name}`,
+        from_name: "Vacancy Cost Calculator Tool",
         "Name": f.name,
         "Company": f.company,
         "Email": f.email || "(not provided)",
@@ -59,7 +59,7 @@ function notifyLead(f, calc) {
         [calc.isRental ? "Rent / unit / mo" : "Price / unit"]: f.price,
         "Opening month": f.opening,
         "Already pre-sold / leased %": f.presold || "0",
-        "— Calculated —": "—",
+        "Calculated Values": "",
         "Total value at stake": money(calc.gross),
         "Runway to opening (months)": calc.noRunway ? "0 or past" : calc.runway,
         "Realistic target %": Math.round(calc.target * 100) + "%",
@@ -86,44 +86,84 @@ const BRAND = {
   muted: "#707070",      // mid grey — muted body text
 };
 
+// Larger projects typically show more distinct floor plans, so render counts scale with
+// an estimated unit-type count (studio/1BR/2BR/etc.) derived from total units. The form
+// doesn't ask about unit mix, so this is a size-based proxy, not a number the lead gave us,
+// the same kind of reasonable estimate the pace/timeline numbers elsewhere already are.
+function estimateUnitTypes(units) {
+  if (units < 20) return 1;
+  if (units < 50) return 2;
+  if (units < 100) return 3;
+  if (units < 200) return 4;
+  return 5;
+}
+function exteriorShotCount(units) {
+  if (units < 20) return 4;
+  if (units < 100) return 6;
+  if (units < 200) return 8;
+  return 10;
+}
+
+// Each step's spec tag is a fixed deliverable count EXCEPT the ones that should scale with
+// the lead's actual project (unit count, estimated unit-type count), computed at render
+// time via spec(calc) instead of a plain string.
 const PHASES = [
   {
     phase: "Phase 1",
     title: "Creative Foundation",
-    tagline: "Make the project sellable before it exists",
+    weeks: "weeks 1–4",
+    tagline: "build these first",
+    blurb: "Nothing markets until these exist. Renders come before everything. The whole funnel is built from them.",
     steps: [
-      { n: "01", t: "Renders that look like photos", c: "Buyers can't picture a building that doesn't exist yet.", d: "See the building a year before it's built." },
-      { n: "02", t: "A showreel that sells the space", c: "No way to build demand before you break ground.", d: "A short walkthrough video for launch and social." },
-      { n: "03", t: "VR tours and 3D floor plans", c: "Buyers can't explore units that aren't built.", d: "Buyers explore units and plans instantly." },
+      { n: "01", t: "Exterior render set", spec: (calc) => `${exteriorShotCount(calc.units)} shots`, d: "2 hero angles, 2 street-context, 1 aerial, 1 amenity/courtyard. This is the sales anchor. Do it first, at Architectural Digest standard." },
+      { n: "02", t: "Interior render set", spec: (calc) => `${estimateUnitTypes(calc.units) * 3} shots min.`, d: "Minimum 1 one-bedroom and 1 two-bedroom unit type, 3 rooms each (living, kitchen, primary bed): the layouts buyers actually choose between. Add more unit types as your mix requires. Build after exteriors lock the look." },
+      { n: "03", t: "Cinematic showreel", spec: "1 video · 45–60s", d: "Cut from the renders above, no separate shoot. One master, plus 3 vertical clips for social. Built last in this phase, once stills are approved." },
+      { n: "04", t: "VR tour + 3D floor plans", spec: (calc) => { const t = estimateUnitTypes(calc.units); return `${t} tour${t === 1 ? "" : "s"} · ${t} plan${t === 1 ? "" : "s"} min.`; }, d: "One walkable VR tour and one clean 3D plan per unit type, one-bed and two-bed at minimum. Lets buyers explore before a wall exists." },
     ],
   },
   {
     phase: "Phase 2",
     title: "Launch System",
-    tagline: "Turn that demand into a qualified waitlist",
+    weeks: "weeks 4–8",
+    tagline: "the machine that captures demand",
+    blurb: "The renders now have somewhere to convert. Slot the selector into your existing site. No rebuild needed.",
     steps: [
-      { n: "04", t: "A website built to capture leads", c: "Interest with nowhere to go, and no way to capture it as a lead.", d: "Bilingual, SEO-ready, and built to capture every visitor as a lead." },
-      { n: "05", t: "A plan selector that qualifies buyers", c: "Your team fields questions instead of qualified buyers.", d: "Buyers browse units and pricing live — only serious leads reach your team." },
-      { n: "06", t: "A presentation office that closes", c: "Site visits stall without the materials to close them.", d: "Signage and materials that turn visits into deposits." },
+      { n: "05", t: "Launch landing page", spec: "1 page · embed-ready", d: "A single conversion page: hero video, key info, and the plan selector below. Drops into your existing site or runs standalone. No full rebuild." },
+      { n: "06", t: "Plan selector", spec: (calc) => `${calc.units} units · live`, d: "Interactive unit picker with live pricing and availability, embedded on the page. Buyers self-qualify, so only serious ones reach your team." },
+      { n: "07", t: "Presentation office kit", spec: "1 brochure · signage set", d: "Sales brochure, seller's handbook, neighborhood map, and on-site display graphics. Turns site visits into deposits." },
     ],
   },
   {
     phase: "Phase 3",
     title: "Social Push",
-    tagline: "Get the project in front of the right buyers",
+    weeks: "week 8 onward",
+    tagline: "keep the waitlist fed",
+    blurb: "Now drive traffic. Content is cut from assets you already built in Phase 1. No new production.",
     steps: [
-      { n: "07", t: "Launch content built from your renders", c: "No content ready for launch without a separate shoot.", d: "Photo and video content cut from your renders — ready to post." },
-      { n: "08", t: "A posting playbook you can run", c: "No consistent presence without hiring an agency.", d: "A simple posting plan and caption library you run in-house." },
-      { n: "09", t: "Content that feeds the waitlist", c: "Social traffic that never turns into a lead.", d: "Every post drives traffic back to your site as leads." },
+      { n: "08", t: "Launch content pack", spec: "12 posts", d: "A month of posts (8 image, 4 video) cut from your render set. Ready to schedule the day the page goes live." },
+      { n: "09", t: "Posting playbook", spec: "1 calendar · caption library", d: "A weekly cadence and a swipe file of captions your team runs in-house. Every post links back to the page, so traffic becomes leads." },
+      { n: "10", t: "Waitlist follow-up sequence", spec: "5 touches · email + SMS", d: "Automated email and text that fires the moment someone fills out the plan selector, keeping them warm until they book a visit or put down a deposit. Set once, runs on its own." },
     ],
   },
 ];
+const TOTAL_DELIVERABLES = PHASES.reduce((n, ph) => n + ph.steps.length, 0);
 
 function money(n) {
   if (!isFinite(n) || n <= 0) return "—";
-  if (n >= 1_000_000) return "$" + (n / 1_000_000).toFixed(n >= 10_000_000 ? 0 : 1) + "M";
-  if (n >= 1_000) return "$" + Math.round(n / 1000) + "K";
-  return "$" + Math.round(n).toLocaleString();
+  // Rounds UP (never understates) to 2 significant figures, so every dollar figure reads as
+  // a clean number instead of an oddly precise one — $647,000 becomes $650K, not "$647K".
+  // A fixed increment (e.g. nearest $10K) can't do this across the whole range: it's right
+  // for $647K but way overshoots a $11K figure into $20K. Scaling the increment to the
+  // number's own magnitude (nearest $1K for $11K, nearest $10K for $647K) keeps both clean.
+  const r = n >= 1000
+    ? (() => { const mag = Math.pow(10, Math.floor(Math.log10(n)) - 1); return Math.ceil(n / mag) * mag; })()
+    : Math.ceil(n);
+  if (r >= 1_000_000) {
+    const m = r / 1_000_000;
+    return "$" + (Number.isInteger(m) ? m : m.toFixed(1)) + "M";
+  }
+  if (r >= 1_000) return "$" + Math.round(r / 1000) + "K";
+  return "$" + r.toLocaleString();
 }
 function monthsUntil(dateStr) {
   if (!dateStr) return 0;
@@ -283,10 +323,18 @@ function App() {
       ? (isRental ? vacantUnits * price : vacantUnits * price * 0.006)
       : (isRental ? units * price : (price * units) * 0.006);
 
+    // Generic sensitivity bands — "what would 10/20/30% vacancy cost on THIS building" —
+    // independent of their actual current occupancy (that's emptyCostMo above). Gives a
+    // benchmark to place their real number against, not just the one figure in isolation.
+    const vacancyScenarios = [0.10, 0.20, 0.30].map((pct) => {
+      const vUnits = Math.round(units * pct);
+      return { pct, units: vUnits, costMo: isRental ? vUnits * price : vUnits * price * 0.006 };
+    });
+
     return {
       units, price, presold, isRental,
       gross, grossBasis, rentRoll,
-      monthsSinceOpening, vacantUnits,
+      monthsSinceOpening, vacantUnits, vacancyScenarios,
       runway, target, targetUnits, alreadyUnits, needUnits, securedAtTarget,
       noRunway, scenarios, emptyCostMo, perUnitValue,
     };
@@ -315,9 +363,6 @@ function App() {
         .btnPrimary:hover { background:${BRAND.accentDeep}; }
         .btnGhost { background:transparent; color:${BRAND.ink}; border:1px solid ${BRAND.ink}; }
         .btnGhost:hover { background:${BRAND.ink}; color:#fff; }
-        .ctaPill { display:inline-block; width:100%; max-width:560px; text-align:center; font-family:'Poppins',Arial,sans-serif; font-weight:800; letter-spacing:.02em; text-transform:uppercase; text-decoration:none; background:${BRAND.ink}; color:${BRAND.onDark}; padding:24px 32px; border-radius:999px; font-size:clamp(15px, 3.6vw, 18px); transition: background .15s ease, transform .1s ease; }
-        .ctaPill:hover { background:${BRAND.accentDeep}; }
-        .ctaPill:active { transform: scale(0.98); }
         .kvLabel { background:${BRAND.ink}; color:${BRAND.onDark}; font-family:'Poppins',Arial,sans-serif; font-size:14px; font-weight:800; letter-spacing:.03em; text-transform:uppercase; padding:14px 16px; width:1%; white-space:nowrap; vertical-align:middle; }
         @media (max-width: 520px) { .kvLabel { white-space: normal; } }
         .planpoint { background:${BRAND.ink}; color:${BRAND.onDark}; border-radius:5px; padding:30px; margin-top:30px; }
@@ -325,31 +370,41 @@ function App() {
       `}</style>
 
       <div style={{ background: "#fff", padding: "26px 20px", textAlign: "center", borderTop: `2px solid ${BRAND.ink}`, borderBottom: `2px solid ${BRAND.ink}` }}>
-        <div style={{ maxWidth: 760, margin: "0 auto", fontFamily: "'Poppins', Arial, sans-serif", fontWeight: 800, fontSize: "clamp(20px, 3.2vw, 32px)", lineHeight: 1.3, color: BRAND.ink }}>
-          Get Your Free Personalized Launch System Roadmap<br />
-          ...in Under 30 Seconds.
+        <div style={{ maxWidth: 760, margin: "0 auto" }}>
+          <div style={{ fontFamily: "'Poppins', Arial, sans-serif", fontWeight: 800, fontSize: "clamp(22px, 3.6vw, 34px)", lineHeight: 1.25, color: BRAND.ink }}>
+            The Vacancy Cost Calculator
+          </div>
+          <div style={{ fontFamily: "'Poppins', Arial, sans-serif", fontWeight: 500, fontSize: "clamp(14px, 2vw, 17px)", lineHeight: 1.4, color: BRAND.muted, marginTop: 6 }}>
+            Find out what waiting to lease could cost you, then get your plan to start earlier.
+          </div>
         </div>
       </div>
 
       <div style={{ position: "relative" }}>
         <img
           src="./02.jpg"
-          alt="2500 The Monte — rendered by Rez 3D"
+          alt="2500 The Monte, rendered by Rez 3D"
           style={{ width: "100%", height: "clamp(400px, 58vw, 680px)", objectFit: "cover", objectPosition: "center 55%", display: "block" }}
         />
         <div style={{ position: "absolute", left: 0, right: 0, bottom: 0, padding: "40px 0 22px", background: "linear-gradient(to top, rgba(0,0,0,0.72), rgba(0,0,0,0))" }}>
           <div style={{ maxWidth: 920, margin: "0 auto", padding: "0 20px" }}>
+            <div style={{ fontFamily: "'Poppins', Arial, sans-serif", textTransform: "uppercase", fontSize: "clamp(11px, 1.6vw, 14px)", fontWeight: 800, letterSpacing: ".18em", color: "#fff", opacity: 0.85, marginBottom: 8, textShadow: "0 1px 6px rgba(0,0,0,0.5)" }}>
+              Case Study · The Monte
+            </div>
             <span style={{ fontFamily: "'Poppins', Arial, sans-serif", textTransform: "uppercase", fontSize: "clamp(30px, 6.5vw, 56px)", fontWeight: 800, color: "#fff", letterSpacing: "-.01em", textShadow: "0 2px 10px rgba(0,0,0,0.55)" }}>
               70% Pre-Leased Before Opening
             </span>
+            <div style={{ fontFamily: "'Poppins', Arial, sans-serif", fontSize: "clamp(17px, 2.8vw, 24px)", fontWeight: 700, color: "#fff", marginTop: 8, textShadow: "0 2px 8px rgba(0,0,0,0.55)" }}>
+              $750K Pre-Leased
+            </div>
           </div>
         </div>
       </div>
 
       <div className="wrap">
         <div className="eyebrow">Rez 3D · Developer Tool</div>
-        <h1 className="h1">The Launch System Roadmap</h1>
-        <p className="sub">Answer six quick questions. Get a pre-sell model built for your project: your value at stake, your target, and the pace you need to hit it before opening day.</p>
+        <h1 className="h1">The Vacancy Cost Calculator</h1>
+        <p className="sub">See what empty units could cost you, and what to have in place to start leasing before opening day.</p>
 
         {step === 0 && (
           <div className="card" style={{ marginTop: 26 }}>
@@ -382,7 +437,7 @@ function App() {
             </div>
             <div style={{ marginTop: 24, display: "flex", gap: 12, alignItems: "center" }}>
               <button className="btn btnPrimary" disabled={!ready} style={{ opacity: ready ? 1 : 0.45, cursor: ready ? "pointer" : "not-allowed" }} onClick={() => { notifyLead(f, calc); setStep(1); }}>
-                Build my Launch System →
+                Calculate My Vacancy Cost →
               </button>
               <span style={{ fontFamily: "'Poppins',Arial,sans-serif", fontSize: 12, color: BRAND.muted }}>Takes 30 seconds. No obligation.</span>
             </div>
@@ -397,12 +452,7 @@ function App() {
 
 function Results({ f, calc, onBack }) {
   const [pdfState, setPdfState] = useState("idle");
-  // Drops the "pre-" once the opening date has passed — at that point it's no longer
-  // a pre-sale milestone, it's just current occupancy ("60% leased", not "60% pre-leased").
-  const label = calc.noRunway
-    ? (calc.isRental ? "leased" : "sold")
-    : (calc.isRental ? "pre-leased" : "pre-sold");
-  const roadmapTitle = `Your ${money(calc.gross)} ${calc.isRental ? "Lease-Up" : "Sell-Out"} Roadmap`;
+  const roadmapTitle = `Your ${money(calc.gross)} ${calc.isRental ? "Pre-Leasing" : "Pre-Selling"} Plan`;
 
   // Reveal the results scrolled to the constraint tables (the payoff), not wherever the
   // page happened to be scrolled to on the form — the client can scroll up for the hero
@@ -453,15 +503,17 @@ function Results({ f, calc, onBack }) {
       const coverY = heroDataUrl ? IMG_H : 0;
 
       // Cover band
-      doc.setFillColor(...ink); doc.rect(0, coverY, W, 80, "F");
+      doc.setFillColor(...ink); doc.rect(0, coverY, W, 104, "F");
       doc.setTextColor(...onDark); doc.setFont("Poppins", "bold"); doc.setFontSize(8);
       doc.text("REZ 3D · DEVELOPER TOOL", M, coverY + 24);
       doc.setTextColor(...onDark); doc.setFont("Poppins", "bold"); doc.setFontSize(20);
-      doc.text("The Launch System Roadmap", M, coverY + 50);
+      doc.text("The Vacancy Cost Calculator", M, coverY + 50);
+      doc.setFont("Poppins", "normal"); doc.setFontSize(9.5); doc.setTextColor(...onDarkMuted);
+      doc.text("Find out what waiting to lease could cost you, then get your plan to start earlier.", M, coverY + 66);
       doc.setFont("Poppins", "normal"); doc.setFontSize(8.5); doc.setTextColor(...onDarkMuted);
-      doc.text(`Prepared for ${f.name}${f.company ? " · " + f.company : ""}`, M, coverY + 68);
+      doc.text(`Prepared for ${f.name}${f.company ? " · " + f.company : ""}`, M, coverY + 88);
 
-      let y = coverY + 100;
+      let y = coverY + 124;
 
       const colGap = 10;
       const cardH = 58;
@@ -484,22 +536,24 @@ function Results({ f, calc, onBack }) {
         }
       }
 
-      // ---- Your Project Overview ----
+      // ---- Your Vacancy Cost ----
       doc.setTextColor(...ink); doc.setFont("Poppins", "bold"); doc.setFontSize(12);
-      doc.text(`Your project overview${f.city ? ", " + f.city : ""}`, M, y);
+      doc.text(`Your vacancy cost${f.city ? ", " + f.city : ""}`, M, y);
       y += 8; doc.setDrawColor(...line); doc.line(M, y, W - M, y); y += 16;
 
-      const overviewStats = [
-        [`${calc.vacantUnits} units`, "Units left to lease", `${calc.alreadyUnits} of ${calc.units} already ${label}`, null],
-        [`$${Math.round(calc.price).toLocaleString()}${calc.isRental ? "/mo" : ""}`, calc.isRental ? "Avg rent / unit / mo" : "Avg price / unit", `Across ${calc.units} units`, null],
-        [
-          `${money(calc.emptyCostMo)}/mo`,
-          calc.noRunway ? (calc.isRental ? "Monthly cost of vacancy" : "Monthly cost of unsold units") : (calc.isRental ? "Monthly cost until fully leased" : "Monthly cost until fully sold"),
-          calc.noRunway ? `${calc.vacantUnits} vacant units sitting empty` : "If you open with zero units leased",
-          "pain",
-        ],
+      // Row 1: generic 10/20/30% sensitivity bands, independent of their actual occupancy.
+      calc.vacancyScenarios.forEach((s, i) => {
+        statCard(M + i * (colW + colGap), y, `${money(s.costMo)}/mo`, `${Math.round(s.pct * 100)}% vacant`, `${s.units} of ${calc.units} units`, null);
+      });
+      y += cardH + 10;
+
+      // Row 2: their actual current cost, plus what a slower lease-up would add to it.
+      const costStats = [
+        [`${money(calc.emptyCostMo)}/mo`, calc.isRental ? "Monthly lost rent" : "Monthly carrying cost", calc.noRunway ? `${calc.vacantUnits} vacant units sitting empty` : "If you open with zero units leased", "pain"],
+        [money(calc.emptyCostMo * 3), calc.isRental ? "Cost of a 3-mo slower lease-up" : "Cost of a 3-mo slower sell-out", "If it takes 3 months longer than planned", null],
+        [money(calc.emptyCostMo * 6), calc.isRental ? "Cost of a 6-mo slower lease-up" : "Cost of a 6-mo slower sell-out", "If it takes 6 months longer than planned", null],
       ];
-      overviewStats.forEach((s, i) => statCard(M + i * (colW + colGap), y, s[0], s[1], s[2], s[3]));
+      costStats.forEach((s, i) => statCard(M + i * (colW + colGap), y, s[0], s[1], s[2], s[3]));
       y += cardH + 24;
 
       // ---- Your Lease-Up Potential ----
@@ -531,15 +585,21 @@ function Results({ f, calc, onBack }) {
         doc.text(phaseLabel, M, y);
         const labelW = doc.getTextWidth(phaseLabel);
         doc.setTextColor(...muted); doc.setFont("Poppins", "normal"); doc.setFontSize(7.5);
-        doc.text("— " + ph.tagline, M + labelW + 6, y);
+        doc.text(`${ph.weeks} · ${ph.tagline}`, M + labelW + 6, y);
         y += 14;
         ph.steps.forEach((s) => {
           doc.setTextColor(...ink); doc.setFont("Poppins", "bold"); doc.setFontSize(8.5); doc.text(s.n, M, y);
           doc.setFont("Poppins", "bold"); doc.setFontSize(9.5); doc.text(s.t, M + 22, y);
+          const spec = typeof s.spec === "function" ? s.spec(calc) : s.spec;
+          doc.setFont("Poppins", "normal"); doc.setFontSize(7.5); doc.setTextColor(...muted);
+          doc.text(spec, W - M, y, { align: "right" });
           y += 13;
         });
         y += 6;
       });
+      doc.setTextColor(...ink); doc.setFont("Poppins", "bold"); doc.setFontSize(8.5);
+      doc.text(`That's the full recipe: ${TOTAL_DELIVERABLES} deliverables, in order.`, M, y);
+      y += 14;
 
       // Footer — flows right after the roadmap as a compact band when there's room.
       // If it wouldn't fit, it becomes a proper full-bleed closing page instead of an
@@ -558,16 +618,16 @@ function Results({ f, calc, onBack }) {
       doc.text("We build what makes it sell.", M, fy); fy += onOwnPage ? 30 : 16;
       doc.setTextColor(...onDarkMuted); doc.setFont("Poppins", "normal"); doc.setFontSize(onOwnPage ? 10.5 : 7.5);
       const blurb = doc.splitTextToSize(
-        "Renders, launch website and plan selector that turn your project into a qualified waitlist before you break ground. We build the assets — we don't sell your units, so no commission and you keep full control of your sales and margins.",
+        "Renders, launch website and plan selector that turn your project into a qualified waitlist before you break ground. We build the assets. We don't sell your units, so no commission and you keep full control of your sales and margins.",
         onOwnPage ? W - M * 2 - 80 : W - M * 2
       );
       doc.text(blurb, M, fy); fy += blurb.length * (onOwnPage ? 15 : 10) + (onOwnPage ? 30 : 10);
       doc.setTextColor(...onDark); doc.setFont("Poppins", "bold"); doc.setFontSize(onOwnPage ? 12 : 9);
-      doc.text("Reach out to scope your project - rez3drenders.ca", M, fy); fy += onOwnPage ? 18 : 13;
+      doc.text("Reach out to scope your project at rez3drenders.ca", M, fy); fy += onOwnPage ? 18 : 13;
       doc.setTextColor(...onDarkMuted); doc.setFont("Poppins", "normal"); doc.setFontSize(onOwnPage ? 8.5 : 7);
       doc.text("Stephane LeBlanc · Rez 3D Renders Inc. · Powered by Planpoint", M, fy);
 
-      doc.save(`Launch-System-Roadmap-${(f.company || f.name).replace(/\s+/g, "-")}.pdf`);
+      doc.save(`Vacancy-Cost-Calculator-${(f.company || f.name).replace(/\s+/g, "-")}.pdf`);
       setPdfState("done");
     } catch (e) {
       console.error(e);
@@ -580,82 +640,64 @@ function Results({ f, calc, onBack }) {
   return (
     <div style={{ marginTop: 26 }} ref={topRef}>
 
-      {/* ===================== SECTION 1: YOUR PROJECT CONSTRAINTS ===================== */}
-      <SectionLabel sub="Where this project stands today — and what waiting is costing you.">Your Project Overview</SectionLabel>
+      {/* ===================== SECTION 1: YOUR VACANCY COST ===================== */}
+      <SectionLabel sub="What empty units are costing you, today and if lease-up runs long.">Your Vacancy Cost</SectionLabel>
+
+      <div className="grid3" style={{ marginTop: 16 }}>
+        {calc.vacancyScenarios.map((s) => (
+          <div key={s.pct} style={{ background: "#fff", border: `2px solid ${BRAND.ink}`, borderRadius: 4, padding: "16px 14px", textAlign: "center" }}>
+            <div style={{ fontFamily: "'Poppins',Arial,sans-serif", fontSize: 11, fontWeight: 800, letterSpacing: ".08em", textTransform: "uppercase", color: BRAND.muted }}>
+              {Math.round(s.pct * 100)}% Vacant
+            </div>
+            <div style={{ fontFamily: "'Poppins',Arial,sans-serif", fontWeight: 800, fontSize: 22, color: BRAND.ink, margin: "6px 0 2px" }}>
+              {money(s.costMo)}/mo
+            </div>
+            <div style={{ fontFamily: "'Poppins',Arial,sans-serif", fontSize: 11, color: BRAND.muted }}>
+              {s.units} of {calc.units} units
+            </div>
+          </div>
+        ))}
+      </div>
 
       <KVTable
         rows={[
           {
-            label: "Units Left to Lease",
-            value: `${calc.vacantUnits} units`,
-            sub: `${calc.alreadyUnits} of ${calc.units} already ${label}`,
-          },
-          {
-            label: calc.isRental ? "Avg Rent / Unit / Mo" : "Avg Price / Unit",
-            value: `$${Math.round(calc.price).toLocaleString()}${calc.isRental ? "/mo" : ""}`,
-            sub: `Across ${calc.units} unit${calc.units === 1 ? "" : "s"}`,
-          },
-          {
-            label: calc.noRunway
-              ? (calc.isRental ? "Monthly Cost of Vacancy" : "Monthly Cost of Unsold Units")
-              : (calc.isRental ? "Monthly Cost Until Fully Leased" : "Monthly Cost Until Fully Sold"),
+            label: calc.isRental ? "Monthly Lost Rent" : "Monthly Carrying Cost",
             value: `${money(calc.emptyCostMo)}/mo`,
             sub: calc.noRunway
               ? (calc.isRental ? `Rent lost every month your ${calc.vacantUnits} vacant unit${calc.vacantUnits === 1 ? "" : "s"} sit empty` : `Financing drag every month your ${calc.vacantUnits} unsold unit${calc.vacantUnits === 1 ? "" : "s"} sit`)
               : (calc.isRental ? "Total rent lost per month if you open with zero units pre-leased" : "Total financing cost per month if you open with zero units pre-sold"),
             highlight: "pain",
           },
-        ]}
-      />
-
-      {/* ===================== SECTION 2: YOUR LEASE-UP POTENTIAL ===================== */}
-      <SectionLabel sub="What the Launch System gets you, step by step.">Your Lease-Up Potential</SectionLabel>
-
-      <KVTable
-        rows={[
           {
-            label: "Expected Leasing Pace",
-            value: `${slow.rate}–${hot.rate} units/mo`,
-            sub: `Typically ~${steady.rate}/mo at a steady pace`,
+            label: calc.isRental ? "Cost of a 3-Month Slower Lease-Up" : "Cost of a 3-Month Slower Sell-Out",
+            value: money(calc.emptyCostMo * 3),
+            sub: "If it takes 3 months longer than planned",
           },
           {
-            label: "Runway to Full (Estimated)",
-            value: `${steady.months} mo`,
-            sub: `Slow: ${slow.months} mo · Hot: ${hot.months} mo`,
-          },
-          {
-            label: calc.isRental ? "Annual Rent Roll at Full Occupancy" : "Total Value at Full Sell-Out",
-            value: money(calc.gross),
-            sub: calc.isRental ? "Once every unit is leased" : "Once every unit is sold",
-            highlight: "good",
+            label: calc.isRental ? "Cost of a 6-Month Slower Lease-Up" : "Cost of a 6-Month Slower Sell-Out",
+            value: money(calc.emptyCostMo * 6),
+            sub: "If it takes 6 months longer than planned",
           },
         ]}
       />
 
-      <h2 style={{ fontSize: 24, fontWeight: 700, margin: "34px 0 6px", fontFamily: "'Poppins', Arial, sans-serif", textAlign: "center" }}>{roadmapTitle}</h2>
+      {/* ===================== SECTION 2: YOUR PRE-LEASING PLAN ===================== */}
+      <SectionLabel sub="What needs to be in place before opening day, and when to build it.">Your Pre-Leasing Plan</SectionLabel>
+
+      <h2 style={{ fontSize: 24, fontWeight: 700, margin: "10px 0 6px", fontFamily: "'Poppins', Arial, sans-serif", textAlign: "center" }}>{roadmapTitle}</h2>
       <p style={{ fontFamily: "'Poppins',Arial,sans-serif", fontSize: 14, color: BRAND.muted, marginTop: 0, marginBottom: 4, textAlign: "center" }}>
-        Phase 1 opens the pipeline. Phase 2 converts it. Phase 3 keeps it fed.
+        Fill your remaining units at <b style={{ color: BRAND.ink }}>{slow.rate}–{hot.rate}/mo</b>, reaching full occupancy in <b style={{ color: BRAND.ink }}>~{steady.months} mo</b>, worth <b style={{ color: BRAND.ink }}>{money(calc.gross)}</b> in {calc.isRental ? "annual rent" : "total sales"}.
       </p>
-      <ConstraintTable phases={PHASES} />
+      <PreLeasingPlan phases={PHASES} calc={calc} />
 
-      <div style={{ textAlign: "center", marginTop: 34, marginBottom: 34 }}>
-        <a
-          href="https://rez3drenders.ca/#00238626-d63c-42cc-b4be-d0ebe5192000"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="ctaPill"
-        >
-          I'm Ready to {calc.noRunway ? (calc.isRental ? "Lease Up" : "Sell Out") : (calc.isRental ? "Pre-Lease" : "Pre-Sell")} →
-        </a>
-      </div>
-
-      <LeasingToolDemo />
+      <LeasingToolDemo calc={calc} />
 
       <div className="planpoint">
         <div className="ppTag">Why Rez 3D</div>
         <h3 style={{ fontSize: 24, fontWeight: 700, margin: "10px 0 12px", fontFamily: "'Poppins', Arial, sans-serif" }}>We build what makes it sell</h3>
         <p style={{ fontFamily: "'Poppins',Arial,sans-serif", fontSize: 15, lineHeight: 1.6, color: BRAND.onDarkMuted, margin: 0 }}>
-          We build the renders, launch system, and <b style={{ color: BRAND.onDark }}>plan selector</b> that turn demand into a qualified waitlist. No commission — you keep full control of your sales and margins.
+          We build the renders, launch system, and <b style={{ color: BRAND.onDark }}>plan selector</b> that turn demand into a qualified waitlist. No commission. You keep full control of your sales and margins.
         </p>
       </div>
 
@@ -670,19 +712,19 @@ function Results({ f, calc, onBack }) {
   );
 }
 
-function LeasingToolDemo() {
+function LeasingToolDemo({ calc }) {
   const DEMO_URL = "https://app.planpoint.io/g/PlanA/projet-vela?lang=en";
 
   return (
     <div style={{ marginTop: 40 }}>
       <div style={{ textAlign: "center", marginBottom: 4 }}>
         <span style={{ fontFamily: "'Poppins',Arial,sans-serif", fontSize: 16, letterSpacing: ".2em", textTransform: "uppercase", color: BRAND.accentDeep, fontWeight: 800 }}>
-          Step 05, demo project
+          A live plan selector, in action
         </span>
       </div>
-      <h2 style={{ fontSize: 24, fontWeight: 700, margin: "0 0 4px", textAlign: "center", fontFamily: "'Poppins', Arial, sans-serif" }}>This is what buyers see</h2>
-      <p style={{ fontFamily: "'Poppins',Arial,sans-serif", fontSize: 14, color: BRAND.muted, textAlign: "center", marginTop: 0, marginBottom: 18 }}>
-        Live interaction. Filter by bedroom, sort by price, click a unit.
+      <h2 style={{ fontSize: 24, fontWeight: 700, margin: "0 0 4px", textAlign: "center", fontFamily: "'Poppins', Arial, sans-serif" }}>This is Step 06 of your plan, already built</h2>
+      <p style={{ fontFamily: "'Poppins',Arial,sans-serif", fontSize: 14, color: BRAND.muted, textAlign: "center", marginTop: 0, marginBottom: 18, maxWidth: 560, marginLeft: "auto", marginRight: "auto" }}>
+        This example belongs to a different project. Yours would work the same way, showing your actual {calc.units} units live, filterable and ready for buyers to browse.
       </p>
 
       <div style={{ border: `1px solid ${BRAND.line}`, borderRadius: 8, overflow: "hidden", background: "#fff", boxShadow: "0 8px 30px rgba(14,27,44,0.08)" }}>
@@ -692,14 +734,14 @@ function LeasingToolDemo() {
           <span style={{ width: 10, height: 10, borderRadius: "50%", background: "#E7B14C" }} />
           <span style={{ width: 10, height: 10, borderRadius: "50%", background: "#6DBE72" }} />
           <span style={{ marginLeft: 10, fontFamily: "'Poppins',Arial,sans-serif", fontSize: 12, color: BRAND.muted, flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-            Demo project
+            Example project (not yours)
           </span>
         </div>
 
         <iframe
           src={DEMO_URL}
           className="ppFrame"
-          title="Planpoint plan selector — demo project"
+          title="Planpoint plan selector, demo project"
           loading="lazy"
         />
 
@@ -765,85 +807,61 @@ function KVTable({ rows, bottomLabel, bottomText, bottomStyle }) {
   );
 }
 
-// Constraint -> Result table: each row is a roadmap step, grouped under a phase divider row.
-// Left column names the step, middle names the problem it removes, right names what it delivers.
-// Renders children at their natural (desktop) width, then scales the whole block down
-// uniformly to fit whatever width it's given — so narrow screens see the exact same
-// layout and proportions as desktop, just smaller, instead of the browser reflowing
-// columns and wrapping text awkwardly.
-function FitWidth({ children }) {
-  const outerRef = useRef(null);
-  const innerRef = useRef(null);
-  const [scale, setScale] = useState(1);
-  const [height, setHeight] = useState(undefined);
-  const [offset, setOffset] = useState(0);
-
-  useLayoutEffect(() => {
-    function recalc() {
-      if (!outerRef.current || !innerRef.current) return;
-      const outerW = outerRef.current.clientWidth;
-      const naturalW = innerRef.current.offsetWidth;
-      const naturalH = innerRef.current.offsetHeight;
-      const s = naturalW > outerW ? outerW / naturalW : 1;
-      setScale(s);
-      setHeight(naturalH * s);
-      // Centers the block when it's narrower than the container (desktop, s === 1).
-      // When it's being scaled down to fit (mobile, s < 1) this always resolves to 0,
-      // since the scaled width already equals outerW exactly — no offset needed.
-      setOffset(Math.max(0, (outerW - naturalW * s) / 2));
-    }
-    recalc();
-    window.addEventListener("resize", recalc);
-    return () => window.removeEventListener("resize", recalc);
-  }, [children]);
-
+// Dark, numbered-phase timeline: each phase is a circle + title + week range, a one-line
+// "why this order" blurb, then its steps as bordered cards with a blue deliverable-spec
+// tag. A step's spec can be a fixed string or a fn(calc) — used for the plan selector,
+// whose unit count should match the lead's actual project, not a placeholder number.
+const PLAN_ACCENT = "#E8A94A";
+function PreLeasingPlan({ phases, calc }) {
   return (
-    <div ref={outerRef} style={{ width: "100%", height, overflow: "hidden" }}>
-      <div ref={innerRef} style={{ display: "inline-block", marginLeft: offset, transform: `scale(${scale})`, transformOrigin: "top left" }}>
-        {children}
-      </div>
-    </div>
-  );
-}
-
-function ConstraintTable({ phases }) {
-  const th = { background: BRAND.ink, color: BRAND.onDark, fontFamily: "'Poppins',Arial,sans-serif", fontSize: 11, fontWeight: 800, letterSpacing: ".08em", textTransform: "uppercase", padding: "12px 18px", textAlign: "left" };
-  const td = { padding: "14px 18px", fontFamily: "'Poppins',Arial,sans-serif", fontSize: 14, color: BRAND.ink2, lineHeight: 1.5, verticalAlign: "top" };
-  const tdLabel = { ...td, color: BRAND.ink, fontWeight: 700, fontSize: 14.5, whiteSpace: "nowrap" };
-  return (
-    <div style={{ marginTop: 16 }}>
-      <FitWidth>
-        <div style={{ border: `2px solid ${BRAND.ink}`, borderRadius: 4, overflow: "hidden", width: 760 }}>
-          <table style={{ width: "100%", borderCollapse: "collapse" }}>
-            <thead>
-              <tr>
-                <th style={th}>Step</th>
-                <th style={th}>The Constraint</th>
-                <th style={th}>The Result</th>
-              </tr>
-            </thead>
-            <tbody>
-              {phases.map((ph) => (
-                <React.Fragment key={ph.phase}>
-                  <tr>
-                    <td colSpan={3} style={{ background: BRAND.ink2, color: BRAND.onDark, fontFamily: "'Poppins',Arial,sans-serif", fontWeight: 800, fontSize: 11, letterSpacing: ".1em", textTransform: "uppercase", padding: "10px 18px" }}>
-                      {ph.phase} — {ph.title}
-                      <span style={{ fontWeight: 500, textTransform: "none", letterSpacing: 0, color: BRAND.onDarkMuted, fontStyle: "italic" }}> · {ph.tagline}</span>
-                    </td>
-                  </tr>
-                  {ph.steps.map((s, i) => (
-                    <tr key={s.n} style={{ background: i % 2 === 0 ? "#fff" : BRAND.paper }}>
-                      <td style={tdLabel}>{s.n} · {s.t}</td>
-                      <td style={td}>{s.c}</td>
-                      <td style={{ ...td, color: BRAND.ink, fontWeight: 600 }}>{s.d}</td>
-                    </tr>
-                  ))}
-                </React.Fragment>
-              ))}
-            </tbody>
-          </table>
+    <div style={{ background: BRAND.ink, borderRadius: 8, padding: "28px 20px", marginTop: 16 }}>
+      {phases.map((ph, pi) => (
+        <div key={ph.phase} style={{ marginBottom: pi === phases.length - 1 ? 22 : 30, paddingTop: pi === 0 ? 0 : 24, borderTop: pi === 0 ? "none" : "1px solid rgba(255,255,255,0.1)" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+            <span style={{ width: 26, height: 26, borderRadius: "50%", background: PLAN_ACCENT, color: "#2B1B00", display: "inline-flex", alignItems: "center", justifyContent: "center", fontFamily: "'Poppins',Arial,sans-serif", fontWeight: 800, fontSize: 12.5, flexShrink: 0 }}>
+              {pi + 1}
+            </span>
+            <span style={{ fontFamily: "'Poppins',Arial,sans-serif", fontWeight: 700, fontSize: 17, color: "#fff" }}>{ph.title}</span>
+            <span style={{ fontFamily: "'Poppins',Arial,sans-serif", fontSize: 12.5, color: "rgba(255,255,255,0.55)" }}>· {ph.weeks} · {ph.tagline}</span>
+          </div>
+          <div style={{ fontFamily: "'Poppins',Arial,sans-serif", fontSize: 13.5, color: "rgba(255,255,255,0.72)", lineHeight: 1.5, margin: "6px 0 14px 36px" }}>
+            {ph.blurb}
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            {ph.steps.map((s) => (
+              <div key={s.n} style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.16)", borderRadius: 6, padding: "14px 16px", boxShadow: "0 1px 0 rgba(255,255,255,0.04) inset" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 10, flexWrap: "wrap" }}>
+                  <span style={{ fontFamily: "'Poppins',Arial,sans-serif", fontWeight: 700, fontSize: 14.5, color: "#fff" }}>{s.n} · {s.t}</span>
+                  <span style={{ fontFamily: "'Poppins',Arial,sans-serif", fontWeight: 800, fontSize: 12, color: PLAN_ACCENT, whiteSpace: "nowrap", background: "rgba(232,169,74,0.16)", padding: "3px 8px", borderRadius: 999 }}>
+                    {typeof s.spec === "function" ? s.spec(calc) : s.spec}
+                  </span>
+                </div>
+                <div style={{ fontFamily: "'Poppins',Arial,sans-serif", fontSize: 13, color: "rgba(255,255,255,0.68)", lineHeight: 1.55, marginTop: 6 }}>
+                  {s.d}
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
-      </FitWidth>
+      ))}
+      <div style={{ background: "rgba(232,169,74,0.14)", border: `1px solid rgba(232,169,74,0.35)`, borderRadius: 6, padding: "16px 18px", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
+        <div>
+          <div style={{ fontFamily: "'Poppins',Arial,sans-serif", fontWeight: 700, fontSize: 14, color: "#F0C775" }}>
+            That's the full recipe: {TOTAL_DELIVERABLES} deliverables, in order.
+          </div>
+          <div style={{ fontFamily: "'Poppins',Arial,sans-serif", fontSize: 12.5, color: "rgba(240,199,117,0.85)", marginTop: 2 }}>
+            We produce every piece for you, in this exact sequence.
+          </div>
+        </div>
+        <a
+          href="https://rez3drenders.ca/#00238626-d63c-42cc-b4be-d0ebe5192000"
+          target="_blank"
+          rel="noopener noreferrer"
+          style={{ background: PLAN_ACCENT, color: "#2B1B00", textDecoration: "none", fontFamily: "'Poppins',Arial,sans-serif", fontWeight: 800, fontSize: 13, padding: "12px 22px", borderRadius: 999, whiteSpace: "nowrap" }}
+        >
+          Have us build this
+        </a>
+      </div>
     </div>
   );
 }
