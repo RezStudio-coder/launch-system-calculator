@@ -115,18 +115,18 @@ const PHASES = [
     tagline: "build these first",
     blurb: "Nothing markets until these exist. Renders come before everything. The whole funnel is built from them.",
     steps: [
-      { n: "01", t: "Exterior render set", spec: (calc) => `${exteriorShotCount(calc.units)} shots`, d: [
+      { n: "01", t: "Exterior render set", img: "./example-exterior.jpg", spec: (calc) => `${exteriorShotCount(calc.units)} shots`, d: [
         "2 hero angles",
         "2 street-context shots",
         "1 aerial shot",
         "1 amenity or courtyard shot",
         "Do this first, at Architectural Digest standard: it's the sales anchor",
       ] },
-      { n: "02", t: "Interior render set", spec: (calc) => `${estimateUnitTypes(calc.units) * 3} shots min.`, d: (calc) => {
+      { n: "02", t: "Interior render set", img: "./example-interior.jpg", spec: (calc) => `${estimateUnitTypes(calc.units) * 3} shots min.`, d: (calc) => {
         const types = estimateUnitTypes(calc.units);
         return [
           `Your ${calc.units}-unit project needs a minimum of ${types} unit type${types === 1 ? "" : "s"} rendered, including common spaces`,
-          "3 rooms each: living, kitchen, primary bed",
+          "3 spaces each: living, kitchen, primary bed",
           "For an accelerated lease-up, render all unit types for optimal efficiency",
           "Build after exteriors lock the look",
         ];
@@ -136,7 +136,7 @@ const PHASES = [
         "One master video, plus 3 vertical clips for social",
         "Built last in this phase, once stills are approved",
       ] },
-      { n: "04", t: "VR tour + 3D floor plans", spec: (calc) => { const t = estimateUnitTypes(calc.units); return `${t} tour${t === 1 ? "" : "s"} · ${t} plan${t === 1 ? "" : "s"} min.`; }, d: [
+      { n: "04", t: "VR tour + 3D floor plans", img: "./example-floorplan.jpg", link: { label: "View a live VR tour", url: "https://kuula.co/share/collection/7T1Nw?logo=-1&card=1&info=0&fs=1&vr=1&initload=0&thumbs=1" }, spec: (calc) => { const t = estimateUnitTypes(calc.units); return `${t} tour${t === 1 ? "" : "s"} · ${t} plan${t === 1 ? "" : "s"} min.`; }, d: [
         "One walkable VR tour and one clean 3D plan per unit type",
         "One-bed and two-bed at minimum",
         "Lets buyers explore before a wall exists",
@@ -151,7 +151,7 @@ const PHASES = [
     blurb: "The renders now have somewhere to convert. Slot the selector into your existing site. No rebuild needed.",
     steps: [
       { n: "05", t: "Launch landing page", spec: "1 page · embed-ready", d: "A single conversion page: hero video, key info, and the plan selector below. Drops into your existing site or runs standalone. No full rebuild." },
-      { n: "06", t: "Plan selector", spec: (calc) => `${calc.units} units · live`, d: "Interactive unit picker with live pricing and availability, embedded on the page. Buyers self-qualify, so only serious ones reach your team." },
+      { n: "06", t: "Plan selector", spec: (calc) => `${calc.units} units · live`, d: "Interactive unit picker with live pricing and availability, embedded on the page. Buyers self-qualify, so only serious ones reach your team.", link: { label: "See it live below", url: "#live-demo" } },
       { n: "07", t: "Presentation office kit", spec: "1 brochure · signage set", d: "Sales brochure, seller's handbook, neighborhood map, and on-site display graphics. Turns site visits into deposits." },
     ],
   },
@@ -741,7 +741,7 @@ function LeasingToolDemo({ calc }) {
   const DEMO_URL = "https://app.planpoint.io/g/PlanA/projet-vela?lang=en";
 
   return (
-    <div style={{ marginTop: 40 }}>
+    <div id="live-demo" style={{ marginTop: 40, scrollMarginTop: 20 }}>
       <div style={{ textAlign: "center", marginBottom: 4 }}>
         <span style={{ fontFamily: "'Poppins',Arial,sans-serif", fontSize: 16, letterSpacing: ".2em", textTransform: "uppercase", color: BRAND.accentDeep, fontWeight: 800 }}>
           A live plan selector, in action
@@ -904,6 +904,9 @@ function PreLeasingPlan({ phases, calc }) {
                         {typeof s.spec === "function" ? s.spec(calc) : s.spec}
                       </span>
                     </div>
+                    {s.img && (
+                      <img src={s.img} alt={`Example ${s.t.toLowerCase()} by Rez 3D`} style={{ width: "100%", height: 400, objectFit: "cover", borderRadius: 6, marginTop: 10, display: "block" }} loading="lazy" />
+                    )}
                     {(() => {
                       const d = typeof s.d === "function" ? s.d(calc) : s.d;
                       return Array.isArray(d) ? (
@@ -914,6 +917,20 @@ function PreLeasingPlan({ phases, calc }) {
                         <div style={{ fontFamily: "'Poppins',Arial,sans-serif", fontSize: 13, color: "rgba(255,255,255,0.68)", lineHeight: 1.55, marginTop: 6 }}>
                           {d}
                         </div>
+                      );
+                    })()}
+                    {s.link && (() => {
+                      const isAnchor = s.link.url.startsWith("#");
+                      return (
+                        <a
+                          href={s.link.url}
+                          target={isAnchor ? undefined : "_blank"}
+                          rel={isAnchor ? undefined : "noopener noreferrer"}
+                          onClick={isAnchor ? (e) => { e.preventDefault(); document.getElementById(s.link.url.slice(1))?.scrollIntoView({ behavior: "smooth", block: "start" }); } : undefined}
+                          style={{ display: "inline-block", marginTop: 10, fontFamily: "'Poppins',Arial,sans-serif", fontSize: 12.5, fontWeight: 800, color: PLAN_ACCENT, textDecoration: "none" }}
+                        >
+                          {s.link.label} {isAnchor ? "↓" : "↗"}
+                        </a>
                       );
                     })()}
                   </div>
