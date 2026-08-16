@@ -97,6 +97,31 @@ function estimateUnitTypes(units) {
   if (units <= 60) return 2;
   return 3;
 }
+
+// Case study 01 (The Monte) is the only one with a known project name — the other two
+// are recent additions without a name yet, so their label stays generic rather than guessing.
+const CASE_STUDIES = [
+  { img: "./case-study-02.jpg", label: "Case Study · 250 Mill Rd", stat: "100% Pre-Leased Before Opening", value: "$250K Pre-Leased" },
+  { img: "./case-study-01.jpg", label: "Case Study · The Monte", stat: "70% Pre-Leased Before Opening", value: "$750K Pre-Leased" },
+  { img: "./case-study-03.jpg", label: "Case Study · Origine Tradition", stat: "50% Pre-Leased Before Opening", value: "$1M Pre-Leased" },
+];
+
+function CaseStudyFan() {
+  return (
+    <div className="csFan">
+      {CASE_STUDIES.map((c, i) => (
+        <div key={i} className={`csCard csCard-${i}`}>
+          <img src={c.img} alt={c.stat} />
+          <div className="csOverlay">
+            <div className="csLabel">{c.label}</div>
+            <div className="csStat">{c.stat}</div>
+            <div className="csValue">{c.value}</div>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
 function exteriorShotCount(units) {
   if (units < 20) return 4;
   if (units < 100) return 6;
@@ -162,7 +187,7 @@ const PHASES = [
     tagline: "keep the waitlist fed",
     blurb: "Now drive traffic. Content is cut from assets you already built in Phase 1. No new production.",
     steps: [
-      { n: "08", t: "Launch content pack", spec: "12 posts", d: "A month of posts (8 image, 4 video) cut from your render set. Ready to schedule the day the page goes live." },
+      { n: "08", t: "Launch content pack", spec: "12 posts + ads", d: (calc) => `A month of posts (8 image, 4 video) cut from your render set. Ready to schedule the day the page goes live, then keep pushing out new content, organic and paid, until you're fully ${calc.isRental ? "leased" : "sold"}. Layer in Google and Meta ads to drive extra traffic to the plan selector.` },
       { n: "09", t: "Posting playbook", spec: "1 calendar · caption library", d: "A weekly cadence and a swipe file of captions your team runs in-house. Every post links back to the page, so traffic becomes leads." },
       { n: "10", t: "Waitlist follow-up sequence", spec: "5 touches · email + SMS", d: "Automated email and text that fires the moment someone fills out the plan selector, keeping them warm until they book a visit or put down a deposit. Set once, runs on its own." },
     ],
@@ -254,17 +279,27 @@ async function ensurePoppinsFont(doc) {
 
 function App() {
   const [step, setStep] = useState(0); // 0 = form, 1 = results
+  const [formStep, setFormStep] = useState(0); // 0, 1, 2 — which wizard screen within the form
   const [f, setF] = useState({
     name: "", company: "", email: "",
     ptype: "Rental (multifamily)", units: "", price: "", opening: "", presold: "", city: "",
   });
   const set = (k) => (e) => setF({ ...f, [k]: e.target.value });
 
+  const FORM_STEPS = ["Who you are", "What you're building", "The numbers"];
+  const formStepReady = [
+    f.name && f.company,
+    true,
+    f.units && f.price && f.opening,
+  ];
+
   const calc = useMemo(() => {
     const units = parseFloat(f.units) || 0;
     const price = parseFloat(f.price) || 0; // condo: price/unit · rental: rent/unit/mo
     const presold = parseFloat(f.presold) || 0;
-    const isRental = f.ptype.includes("Rental");
+    // Mixed-use projects are almost always leased on both sides — residential above,
+    // commercial ground-floor below — not sold, so they run on the same rental math.
+    const isRental = f.ptype.includes("Rental") || f.ptype.includes("Mixed");
 
     // ---- Headline "value at stake" ----
     // Rental  -> annual rent roll (rent × units × 12). No multiplier, no assumptions.
@@ -358,7 +393,7 @@ function App() {
       gross, grossBasis, rentRoll,
       monthsSinceOpening, vacantUnits, vacancyScenarios,
       runway, target, targetUnits, alreadyUnits, needUnits, securedAtTarget,
-      noRunway, scenarios, emptyCostMo, perUnitValue,
+      noRunway, scenarios, emptyCostMo, perUnitValue, benchmarkTarget,
     };
   }, [f]);
 
@@ -388,6 +423,40 @@ function App() {
         .kvLabel { background:${BRAND.ink}; color:${BRAND.onDark}; font-family:'Poppins',Arial,sans-serif; font-size:14px; font-weight:800; letter-spacing:.03em; text-transform:uppercase; padding:14px 16px; width:1%; white-space:nowrap; vertical-align:middle; }
         .planpoint { background:${BRAND.ink}; color:${BRAND.onDark}; border-radius:5px; padding:30px; margin-top:30px; }
         .ppTag { font-family:'Poppins',Arial,sans-serif; letter-spacing:.24em; text-transform:uppercase; font-size:10px; color:${BRAND.onDarkMuted}; font-weight:700; }
+
+        .csFan { position:relative; height:300px; margin:32px 0 20px; }
+        .csCard { position:absolute; top:0; left:50%; border-radius:8px; overflow:hidden; box-shadow:0 14px 30px rgba(0,0,0,0.22); background:#000; }
+        .csCard img { width:100%; object-fit:cover; display:block; }
+        .csCard-0, .csCard-2 { width:250px; opacity:.94; }
+        .csCard-0 img, .csCard-2 img { height:190px; }
+        .csCard-1 { width:310px; z-index:3; }
+        .csCard-1 img { height:235px; }
+        .csCard-0 { top:18px; z-index:1; transform:translateX(-50%) translateX(-265px) rotate(-6deg); }
+        .csCard-2 { top:18px; z-index:2; transform:translateX(-50%) translateX(265px) rotate(6deg); }
+        .csCard-1 { transform:translateX(-50%); }
+        .csOverlay { position:absolute; left:0; right:0; bottom:0; padding:12px 12px 10px; background:linear-gradient(to top, rgba(0,0,0,0.8), rgba(0,0,0,0)); }
+        .csLabel { font-family:'Poppins',Arial,sans-serif; text-transform:uppercase; font-size:8.5px; font-weight:800; letter-spacing:.14em; color:#fff; opacity:.85; margin-bottom:4px; }
+        .csStat { font-family:'Poppins',Arial,sans-serif; text-transform:uppercase; font-size:13px; font-weight:800; color:#fff; line-height:1.25; }
+        .csValue { font-family:'Poppins',Arial,sans-serif; font-size:11.5px; font-weight:700; color:#fff; margin-top:3px; }
+        @media (max-width:640px) {
+          .csFan { height:200px; margin:22px 0 14px; }
+          .csCard-0, .csCard-2 { width:145px !important; }
+          .csCard-0 img, .csCard-2 img { height:108px !important; }
+          .csCard-1 { width:180px !important; }
+          .csCard-1 img { height:138px !important; }
+          .csCard-0 { transform:translateX(-50%) translateX(-92px) rotate(-6deg) !important; }
+          .csCard-2 { transform:translateX(-50%) translateX(92px) rotate(6deg) !important; }
+          .csCard-1 { transform:translateX(-50%) !important; }
+          .csOverlay { padding:8px 8px 7px; }
+          .csLabel { font-size:6.5px; margin-bottom:2px; }
+          .csStat { font-size:9px; line-height:1.15; }
+          .csValue { font-size:8px; margin-top:2px; }
+        }
+
+        .wizLabel { font-family:'Poppins',Arial,sans-serif; font-size:13px; font-weight:800; letter-spacing:.04em; color:${BRAND.ink}; margin-bottom:10px; }
+        .wizProgress { display:flex; gap:6px; margin-bottom:18px; }
+        .wizSeg { flex:1; height:4px; border-radius:2px; background:${BRAND.line}; }
+        .wizSeg.active { background:${BRAND.ink}; }
       `}</style>
 
       <div style={{ background: "#fff", padding: "26px 20px", textAlign: "center", borderTop: `2px solid ${BRAND.ink}`, borderBottom: `2px solid ${BRAND.ink}` }}>
@@ -401,66 +470,75 @@ function App() {
         </div>
       </div>
 
-      <div style={{ position: "relative" }}>
-        <img
-          src="./02.jpg"
-          alt="2500 The Monte, rendered by Rez 3D"
-          style={{ width: "100%", height: "clamp(400px, 58vw, 680px)", objectFit: "cover", objectPosition: "center 55%", display: "block" }}
-        />
-        <div style={{ position: "absolute", left: 0, right: 0, bottom: 0, padding: "40px 0 22px", background: "linear-gradient(to top, rgba(0,0,0,0.72), rgba(0,0,0,0))" }}>
-          <div style={{ maxWidth: 920, margin: "0 auto", padding: "0 20px" }}>
-            <div style={{ fontFamily: "'Poppins', Arial, sans-serif", textTransform: "uppercase", fontSize: "clamp(11px, 1.6vw, 14px)", fontWeight: 800, letterSpacing: ".18em", color: "#fff", opacity: 0.85, marginBottom: 8, textShadow: "0 1px 6px rgba(0,0,0,0.5)" }}>
-              Case Study · The Monte
-            </div>
-            <span style={{ fontFamily: "'Poppins', Arial, sans-serif", textTransform: "uppercase", fontSize: "clamp(30px, 6.5vw, 56px)", fontWeight: 800, color: "#fff", letterSpacing: "-.01em", textShadow: "0 2px 10px rgba(0,0,0,0.55)" }}>
-              70% Pre-Leased Before Opening
-            </span>
-            <div style={{ fontFamily: "'Poppins', Arial, sans-serif", fontSize: "clamp(17px, 2.8vw, 24px)", fontWeight: 700, color: "#fff", marginTop: 8, textShadow: "0 2px 8px rgba(0,0,0,0.55)" }}>
-              $750K Pre-Leased
-            </div>
-          </div>
-        </div>
-      </div>
-
       <div className="wrap">
         <div className="eyebrow">Rez 3D · Developer Tool</div>
         <h1 className="h1">The Vacancy Cost Calculator</h1>
         <p className="sub">See what empty units could cost you, and what to have in place to start leasing before opening day.</p>
 
+        {step === 0 && <CaseStudyFan />}
+
         {step === 0 && (
           <div className="card" style={{ marginTop: 26 }}>
-            <div className="grid3" style={{ marginBottom: 16 }}>
-              <div><label>Your name</label><input value={f.name} onChange={set("name")} placeholder="Jordan Smith" /></div>
-              <div><label>Company</label><input value={f.company} onChange={set("company")} placeholder="Developments Inc." /></div>
-              <div><label>Email</label><input value={f.email} onChange={set("email")} placeholder="you@company.com" /></div>
+            <div className="wizProgress">
+              {FORM_STEPS.map((_, i) => <div key={i} className={`wizSeg ${i <= formStep ? "active" : ""}`} />)}
             </div>
-            <div className="grid2" style={{ marginBottom: 16 }}>
-              <div>
-                <label>Project type</label>
-                <select value={f.ptype} onChange={set("ptype")}>
-                  <option>Condo (for sale)</option>
-                  <option>Rental (multifamily)</option>
-                  <option>Mixed-use</option>
-                </select>
+            <div className="wizLabel">Step {formStep + 1} of {FORM_STEPS.length} · {FORM_STEPS[formStep]}</div>
+
+            {formStep === 0 && (
+              <div className="grid3">
+                <div><label>Your name</label><input value={f.name} onChange={set("name")} placeholder="Jordan Smith" /></div>
+                <div><label>Company</label><input value={f.company} onChange={set("company")} placeholder="Developments Inc." /></div>
+                <div><label>Email</label><input value={f.email} onChange={set("email")} placeholder="you@company.com" /></div>
               </div>
-              <div><label>City / market</label><input value={f.city} onChange={set("city")} placeholder="City, Province" /></div>
-            </div>
-            <div className="grid3" style={{ marginBottom: 16 }}>
-              <div><label>Number of units</label><input value={f.units} onChange={set("units")} inputMode="numeric" placeholder="60" /></div>
-              <div>
-                <label>{calc.isRental ? "Rent / unit / mo" : "Price / unit"}</label>
-                <input value={f.price} onChange={set("price")} inputMode="numeric" placeholder={calc.isRental ? "1900" : "425000"} />
+            )}
+
+            {formStep === 1 && (
+              <div className="grid2">
+                <div>
+                  <label>Project type</label>
+                  <select value={f.ptype} onChange={set("ptype")}>
+                    <option>Condo (for sale)</option>
+                    <option>Rental (multifamily)</option>
+                    <option>Mixed-use</option>
+                  </select>
+                </div>
+                <div><label>City / market</label><input value={f.city} onChange={set("city")} placeholder="City, Province" /></div>
               </div>
-              <div><label>Opening (month)</label><input value={f.opening} onChange={set("opening")} type="month" /></div>
-            </div>
-            <div className="grid2">
-              <div><label>Already pre-sold / leased (%)</label><input value={f.presold} onChange={set("presold")} inputMode="numeric" placeholder="0" /></div>
-            </div>
+            )}
+
+            {formStep === 2 && (
+              <>
+                <div className="grid3" style={{ marginBottom: 16 }}>
+                  <div><label>Number of units</label><input value={f.units} onChange={set("units")} inputMode="numeric" placeholder="60" /></div>
+                  <div>
+                    <label>{calc.isRental ? "Rent / unit / mo" : "Price / unit"}</label>
+                    <input value={f.price} onChange={set("price")} inputMode="numeric" placeholder={calc.isRental ? "1900" : "425000"} />
+                  </div>
+                  <div><label>Opening (month)</label><input value={f.opening} onChange={set("opening")} type="month" /></div>
+                </div>
+                <div className="grid2">
+                  <div><label>Already pre-sold / leased (%)</label><input value={f.presold} onChange={set("presold")} inputMode="numeric" placeholder="0" /></div>
+                </div>
+              </>
+            )}
+
             <div style={{ marginTop: 24, display: "flex", gap: 12, alignItems: "center" }}>
-              <button className="btn btnPrimary" disabled={!ready} style={{ opacity: ready ? 1 : 0.45, cursor: ready ? "pointer" : "not-allowed" }} onClick={() => { notifyLead(f, calc); setStep(1); }}>
-                Calculate My Vacancy Cost →
-              </button>
-              <span style={{ fontFamily: "'Poppins',Arial,sans-serif", fontSize: 12, color: BRAND.muted }}>Takes 30 seconds. No obligation.</span>
+              {formStep > 0 && (
+                <button className="btn btnGhost" onClick={() => setFormStep(formStep - 1)}>← Back</button>
+              )}
+              {formStep < FORM_STEPS.length - 1 && (
+                <button className="btn btnPrimary" disabled={!formStepReady[formStep]} style={{ opacity: formStepReady[formStep] ? 1 : 0.45, cursor: formStepReady[formStep] ? "pointer" : "not-allowed" }} onClick={() => setFormStep(formStep + 1)}>
+                  Next →
+                </button>
+              )}
+              {formStep === FORM_STEPS.length - 1 && (
+                <>
+                  <button className="btn btnPrimary" disabled={!ready} style={{ opacity: ready ? 1 : 0.45, cursor: ready ? "pointer" : "not-allowed" }} onClick={() => { notifyLead(f, calc); setStep(1); }}>
+                    Calculate My Vacancy Cost →
+                  </button>
+                  <span style={{ fontFamily: "'Poppins',Arial,sans-serif", fontSize: 12, color: BRAND.muted }}>Takes 30 seconds. No obligation.</span>
+                </>
+              )}
             </div>
           </div>
         )}
@@ -512,7 +590,7 @@ function Results({ f, calc, onBack }) {
       const PAGE_H = doc.internal.pageSize.getHeight();
 
       // Hero render, cropped to a banner strip, with the pre-sold hook overlaid
-      const IMG_H = 130;
+      const IMG_H = 96;
       let heroDataUrl = null;
       try { heroDataUrl = await loadCoverImage("./02.jpg", W * 2, IMG_H * 2, 0.55); } catch (e) { heroDataUrl = null; }
       if (heroDataUrl) {
@@ -524,20 +602,20 @@ function Results({ f, calc, onBack }) {
       const coverY = heroDataUrl ? IMG_H : 0;
 
       // Cover band
-      doc.setFillColor(...ink); doc.rect(0, coverY, W, 104, "F");
+      doc.setFillColor(...ink); doc.rect(0, coverY, W, 90, "F");
       doc.setTextColor(...onDark); doc.setFont("Poppins", "bold"); doc.setFontSize(8);
-      doc.text("REZ 3D · DEVELOPER TOOL", M, coverY + 24);
-      doc.setTextColor(...onDark); doc.setFont("Poppins", "bold"); doc.setFontSize(20);
-      doc.text("The Vacancy Cost Calculator", M, coverY + 50);
-      doc.setFont("Poppins", "normal"); doc.setFontSize(9.5); doc.setTextColor(...onDarkMuted);
-      doc.text("Find out what waiting to lease could cost you, then get your plan to start earlier.", M, coverY + 66);
-      doc.setFont("Poppins", "normal"); doc.setFontSize(8.5); doc.setTextColor(...onDarkMuted);
-      doc.text(`Prepared for ${f.name}${f.company ? " · " + f.company : ""}`, M, coverY + 88);
+      doc.text("REZ 3D · DEVELOPER TOOL", M, coverY + 20);
+      doc.setTextColor(...onDark); doc.setFont("Poppins", "bold"); doc.setFontSize(18);
+      doc.text("The Vacancy Cost Calculator", M, coverY + 43);
+      doc.setFont("Poppins", "normal"); doc.setFontSize(9); doc.setTextColor(...onDarkMuted);
+      doc.text("Find out what waiting to lease could cost you, then get your plan to start earlier.", M, coverY + 58);
+      doc.setFont("Poppins", "normal"); doc.setFontSize(8); doc.setTextColor(...onDarkMuted);
+      doc.text(`Prepared for ${f.name}${f.company ? " · " + f.company : ""}`, M, coverY + 77);
 
-      let y = coverY + 124;
+      let y = coverY + 104;
 
       const colGap = 10;
-      const cardH = 58;
+      const cardH = 52;
       const colW = (W - M * 2 - colGap * 2) / 3;
       // One row of 3 stat cards, one of which (tone: "pain" or "good") is drawn in color
       // as the emotional point of that row — mirrors the on-screen KVTable highlight.
@@ -546,27 +624,27 @@ function Results({ f, calc, onBack }) {
         doc.setDrawColor(...(t ? t.border : line));
         doc.setFillColor(...(t ? t.bg : [255, 255, 255]));
         doc.roundedRect(x, yy, colW, cardH, 3, 3, "FD");
-        doc.setTextColor(...(t ? t.text : ink)); doc.setFont("Poppins", "bold"); doc.setFontSize(t ? 16 : 14);
-        doc.text(String(value), x + 10, yy + 22);
+        doc.setTextColor(...(t ? t.text : ink)); doc.setFont("Poppins", "bold"); doc.setFontSize(t ? 15 : 13);
+        doc.text(String(value), x + 10, yy + 19);
         doc.setTextColor(...(t ? t.text : muted)); doc.setFont("Poppins", "bold"); doc.setFontSize(6.5);
-        doc.text(String(valueLabel).toUpperCase(), x + 10, yy + 35, { maxWidth: colW - 18 });
+        doc.text(String(valueLabel).toUpperCase(), x + 10, yy + 31, { maxWidth: colW - 18 });
         if (sub) {
           doc.setFont("Poppins", "normal"); doc.setFontSize(6);
           doc.setTextColor(...(t ? t.text : faint));
-          doc.text(String(sub), x + 10, yy + 47, { maxWidth: colW - 18 });
+          doc.text(String(sub), x + 10, yy + 42, { maxWidth: colW - 18 });
         }
       }
 
       // ---- Your Vacancy Cost ----
-      doc.setTextColor(...ink); doc.setFont("Poppins", "bold"); doc.setFontSize(12);
+      doc.setTextColor(...ink); doc.setFont("Poppins", "bold"); doc.setFontSize(11.5);
       doc.text(`Your vacancy cost${f.city ? ", " + f.city : ""}`, M, y);
-      y += 8; doc.setDrawColor(...line); doc.line(M, y, W - M, y); y += 16;
+      y += 6; doc.setDrawColor(...line); doc.line(M, y, W - M, y); y += 13;
 
       // Row 1: generic 10/20/30% sensitivity bands, independent of their actual occupancy.
       calc.vacancyScenarios.forEach((s, i) => {
         statCard(M + i * (colW + colGap), y, `${money(s.costMo)}/mo`, `${Math.round(s.pct * 100)}% vacant`, `${s.units} of ${calc.units} units`, null);
       });
-      y += cardH + 10;
+      y += cardH + 8;
 
       // Row 2: their actual current cost, plus what a slower lease-up would add to it.
       const costStats = [
@@ -575,16 +653,20 @@ function Results({ f, calc, onBack }) {
         [money(calc.emptyCostMo * 6), calc.isRental ? "Cost of a 6-mo slower lease-up" : "Cost of a 6-mo slower sell-out", "If it takes 6 months longer than planned", null],
       ];
       costStats.forEach((s, i) => statCard(M + i * (colW + colGap), y, s[0], s[1], s[2], s[3]));
-      y += cardH + 24;
+      y += cardH + 18;
 
       // ---- Your Lease-Up Potential ----
-      doc.setTextColor(...ink); doc.setFont("Poppins", "bold"); doc.setFontSize(12);
+      doc.setTextColor(...ink); doc.setFont("Poppins", "bold"); doc.setFontSize(11.5);
       doc.text("Your lease-up potential", M, y);
-      y += 8; doc.setDrawColor(...line); doc.line(M, y, W - M, y); y += 16;
+      y += 6; doc.setDrawColor(...line); doc.line(M, y, W - M, y); y += 13;
 
+      const runwayValue = calc.needUnits > 0 ? `${steady.months} mo` : (aheadOfBenchmark ? "Ahead of pace" : "No runway left");
+      const runwaySub = calc.needUnits > 0
+        ? `Slow: ${slow.months} mo · Hot: ${hot.months} mo`
+        : (aheadOfBenchmark ? "Already past benchmark" : `${calc.vacantUnits} unit${calc.vacantUnits === 1 ? "" : "s"} still ${calc.isRental ? "unleased" : "unsold"}`);
       const potentialStats = [
         [`${slow.rate}–${hot.rate} units/mo`, "Expected leasing pace", `Typically ~${steady.rate}/mo at a steady pace`, null],
-        [`${steady.months} mo`, "Runway to full (estimated)", `Slow: ${slow.months} mo · Hot: ${hot.months} mo`, null],
+        [runwayValue, "Runway to full (estimated)", runwaySub, null],
         [
           money(calc.gross),
           calc.isRental ? "Annual rent roll at full occupancy" : "Total value at full sell-out",
@@ -593,12 +675,12 @@ function Results({ f, calc, onBack }) {
         ],
       ];
       potentialStats.forEach((s, i) => statCard(M + i * (colW + colGap), y, s[0], s[1], s[2], s[3]));
-      y += cardH + 20;
+      y += cardH + 15;
 
       // Roadmap — titles only, no descriptions, to keep this to one page
-      doc.setTextColor(...ink); doc.setFont("Poppins", "bold"); doc.setFontSize(12);
-      doc.text(roadmapTitle, M, y); y += 6;
-      doc.setDrawColor(...line); doc.line(M, y, W - M, y); y += 16;
+      doc.setTextColor(...ink); doc.setFont("Poppins", "bold"); doc.setFontSize(11.5);
+      doc.text(roadmapTitle, M, y); y += 5;
+      doc.setDrawColor(...line); doc.line(M, y, W - M, y); y += 13;
 
       PHASES.forEach((ph) => {
         doc.setTextColor(...ink); doc.setFont("Poppins", "bold"); doc.setFontSize(7.5);
@@ -607,45 +689,45 @@ function Results({ f, calc, onBack }) {
         const labelW = doc.getTextWidth(phaseLabel);
         doc.setTextColor(...muted); doc.setFont("Poppins", "normal"); doc.setFontSize(7.5);
         doc.text(`${ph.weeks} · ${ph.tagline}`, M + labelW + 6, y);
-        y += 14;
+        y += 13;
         ph.steps.forEach((s) => {
           doc.setTextColor(...ink); doc.setFont("Poppins", "bold"); doc.setFontSize(8.5); doc.text(s.n, M, y);
           doc.setFont("Poppins", "bold"); doc.setFontSize(9.5); doc.text(s.t, M + 22, y);
           const spec = typeof s.spec === "function" ? s.spec(calc) : s.spec;
           doc.setFont("Poppins", "normal"); doc.setFontSize(7.5); doc.setTextColor(...muted);
           doc.text(spec, W - M, y, { align: "right" });
-          y += 13;
+          y += 11.5;
         });
-        y += 6;
+        y += 4;
       });
       doc.setTextColor(...ink); doc.setFont("Poppins", "bold"); doc.setFontSize(8.5);
       doc.text(`That's the full recipe: ${TOTAL_DELIVERABLES} deliverables, in order.`, M, y);
-      y += 14;
+      y += 10;
 
       // Footer — flows right after the roadmap as a compact band when there's room.
       // If it wouldn't fit, it becomes a proper full-bleed closing page instead of an
       // awkward sliver at the top of an otherwise-empty page.
-      const COMPACT_FOOTER_H = 130;
-      y += 10;
+      const COMPACT_FOOTER_H = 108;
+      y += 6;
       const onOwnPage = y + COMPACT_FOOTER_H > PAGE_H - 30;
       if (onOwnPage) { doc.addPage(); y = 0; }
       const footerTop = y;
       const footerH = onOwnPage ? PAGE_H : COMPACT_FOOTER_H;
       doc.setFillColor(...ink); doc.rect(0, footerTop, W, footerH, "F");
-      let fy = footerTop + (onOwnPage ? 150 : 22);
-      doc.setTextColor(...onDark); doc.setFont("Poppins", "bold"); doc.setFontSize(onOwnPage ? 9 : 8);
-      doc.text("WHY REZ 3D", M, fy); fy += onOwnPage ? 26 : 18;
-      doc.setTextColor(...onDark); doc.setFont("Poppins", "bold"); doc.setFontSize(onOwnPage ? 22 : 14);
-      doc.text("We build what makes it sell.", M, fy); fy += onOwnPage ? 30 : 16;
-      doc.setTextColor(...onDarkMuted); doc.setFont("Poppins", "normal"); doc.setFontSize(onOwnPage ? 10.5 : 7.5);
+      let fy = footerTop + (onOwnPage ? 150 : 18);
+      doc.setTextColor(...onDark); doc.setFont("Poppins", "bold"); doc.setFontSize(onOwnPage ? 9 : 7.5);
+      doc.text("WHY REZ 3D", M, fy); fy += onOwnPage ? 26 : 15;
+      doc.setTextColor(...onDark); doc.setFont("Poppins", "bold"); doc.setFontSize(onOwnPage ? 22 : 13);
+      doc.text("We build what makes it sell.", M, fy); fy += onOwnPage ? 30 : 14;
+      doc.setTextColor(...onDarkMuted); doc.setFont("Poppins", "normal"); doc.setFontSize(onOwnPage ? 10.5 : 7);
       const blurb = doc.splitTextToSize(
         "Renders, launch website and plan selector that turn your project into a qualified waitlist before you break ground. We build the assets. We don't sell your units, so no commission and you keep full control of your sales and margins.",
         onOwnPage ? W - M * 2 - 80 : W - M * 2
       );
-      doc.text(blurb, M, fy); fy += blurb.length * (onOwnPage ? 15 : 10) + (onOwnPage ? 30 : 10);
-      doc.setTextColor(...onDark); doc.setFont("Poppins", "bold"); doc.setFontSize(onOwnPage ? 12 : 9);
-      doc.text("Reach out to scope your project at rez3drenders.ca", M, fy); fy += onOwnPage ? 18 : 13;
-      doc.setTextColor(...onDarkMuted); doc.setFont("Poppins", "normal"); doc.setFontSize(onOwnPage ? 8.5 : 7);
+      doc.text(blurb, M, fy); fy += blurb.length * (onOwnPage ? 15 : 9) + (onOwnPage ? 30 : 8);
+      doc.setTextColor(...onDark); doc.setFont("Poppins", "bold"); doc.setFontSize(onOwnPage ? 12 : 8.5);
+      doc.text("Reach out to scope your project at rez3drenders.ca", M, fy); fy += onOwnPage ? 18 : 11;
+      doc.setTextColor(...onDarkMuted); doc.setFont("Poppins", "normal"); doc.setFontSize(onOwnPage ? 8.5 : 6.5);
       doc.text("Stephane LeBlanc · Rez 3D Renders Inc. · Powered by Planpoint", M, fy);
 
       doc.save(`Vacancy-Cost-Calculator-${(f.company || f.name).replace(/\s+/g, "-")}.pdf`);
@@ -657,6 +739,10 @@ function Results({ f, calc, onBack }) {
   }
 
   const [slow, steady, hot] = calc.scenarios;
+  // needUnits can hit 0 two very different ways: already past the pre-leasing benchmark
+  // (genuinely ahead), or opening is so close there's no runway left to make progress
+  // toward it (genuinely behind) — same number, opposite story, so they need different copy.
+  const aheadOfBenchmark = calc.alreadyUnits >= calc.units * calc.benchmarkTarget;
 
   return (
     <div style={{ marginTop: 26 }} ref={topRef}>
@@ -712,7 +798,13 @@ function Results({ f, calc, onBack }) {
 
       <h2 style={{ fontSize: 24, fontWeight: 700, margin: "10px 0 6px", fontFamily: "'Poppins', Arial, sans-serif", textAlign: "center" }}>{roadmapTitle}</h2>
       <p style={{ fontFamily: "'Poppins',Arial,sans-serif", fontSize: 14, color: BRAND.muted, marginTop: 0, marginBottom: 4, textAlign: "center" }}>
-        Fill your remaining units at <b style={{ color: BRAND.ink }}>{slow.rate}–{hot.rate}/mo</b>, reaching full occupancy in <b style={{ color: BRAND.ink }}>~{steady.months} mo</b>, worth <b style={{ color: BRAND.ink }}>{money(calc.gross)}</b> in {calc.isRental ? "annual rent" : "total sales"}.
+        {calc.needUnits > 0 ? (
+          <>Fill your remaining units at <b style={{ color: BRAND.ink }}>{slow.rate}–{hot.rate}/mo</b>, reaching full occupancy in <b style={{ color: BRAND.ink }}>~{steady.months} mo</b>, worth <b style={{ color: BRAND.ink }}>{money(calc.gross)}</b> in {calc.isRental ? "annual rent" : "total sales"}.</>
+        ) : aheadOfBenchmark ? (
+          <>You're already ahead of pace on pre-{calc.isRental ? "leasing" : "selling"}, worth <b style={{ color: BRAND.ink }}>{money(calc.gross)}</b> in {calc.isRental ? "annual rent" : "total sales"} once every unit is {calc.isRental ? "leased" : "sold"}.</>
+        ) : (
+          <>Opening is close with <b style={{ color: BRAND.ink }}>{calc.vacantUnits} unit{calc.vacantUnits === 1 ? "" : "s"}</b> still {calc.isRental ? "unleased" : "unsold"} — there's barely any runway left to hit a pre-{calc.isRental ? "leasing" : "selling"} benchmark, worth <b style={{ color: BRAND.ink }}>{money(calc.gross)}</b> in {calc.isRental ? "annual rent" : "total sales"} once it's full.</>
+        )}
       </p>
       <PreLeasingPlan phases={PHASES} calc={calc} />
 
@@ -900,7 +992,7 @@ function PreLeasingPlan({ phases, calc }) {
                   <div key={s.n} style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.16)", borderRadius: 6, padding: "14px 16px", boxShadow: "0 1px 0 rgba(255,255,255,0.04) inset" }}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 10, flexWrap: "wrap" }}>
                       <span style={{ fontFamily: "'Poppins',Arial,sans-serif", fontWeight: 800, fontSize: 17, color: "#fff" }}>{s.n} · {s.t}</span>
-                      <span style={{ fontFamily: "'Poppins',Arial,sans-serif", fontWeight: 800, fontSize: 12, color: PLAN_ACCENT, whiteSpace: "nowrap", background: "rgba(232,169,74,0.16)", padding: "3px 8px", borderRadius: 999 }}>
+                      <span style={{ fontFamily: "'Poppins',Arial,sans-serif", fontWeight: 800, fontSize: 15, color: PLAN_ACCENT, whiteSpace: "nowrap", background: "rgba(232,169,74,0.16)", padding: "4px 10px", borderRadius: 999 }}>
                         {typeof s.spec === "function" ? s.spec(calc) : s.spec}
                       </span>
                     </div>
