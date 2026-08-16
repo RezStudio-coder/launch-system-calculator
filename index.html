@@ -288,9 +288,9 @@ function App() {
 
   const FORM_STEPS = ["Who you are", "What you're building", "The numbers"];
   const formStepReady = [
-    f.name && f.company,
-    true,
-    f.units && f.price && f.opening,
+    f.name && f.company && f.email,
+    f.city,
+    f.units && f.price && f.opening && f.presold,
   ];
 
   const calc = useMemo(() => {
@@ -397,7 +397,7 @@ function App() {
     };
   }, [f]);
 
-  const ready = f.name && f.company && f.units && f.price && f.opening;
+  const ready = f.name && f.company && f.email && f.city && f.units && f.price && f.opening && f.presold;
 
   return (
     <div style={{ minHeight: "100vh", background: BRAND.paper, color: BRAND.ink, fontFamily: "'Poppins', Arial, sans-serif" }}>
@@ -439,18 +439,18 @@ function App() {
         .csStat { font-family:'Poppins',Arial,sans-serif; text-transform:uppercase; font-size:13px; font-weight:800; color:#fff; line-height:1.25; }
         .csValue { font-family:'Poppins',Arial,sans-serif; font-size:11.5px; font-weight:700; color:#fff; margin-top:3px; }
         @media (max-width:640px) {
-          .csFan { height:200px; margin:22px 0 14px; }
-          .csCard-0, .csCard-2 { width:145px !important; }
-          .csCard-0 img, .csCard-2 img { height:108px !important; }
-          .csCard-1 { width:180px !important; }
-          .csCard-1 img { height:138px !important; }
-          .csCard-0 { transform:translateX(-50%) translateX(-92px) rotate(-6deg) !important; }
-          .csCard-2 { transform:translateX(-50%) translateX(92px) rotate(6deg) !important; }
+          .csFan { height:255px; margin:22px 0 14px; }
+          .csCard-0, .csCard-2 { width:165px !important; }
+          .csCard-0 img, .csCard-2 img { height:150px !important; }
+          .csCard-1 { width:215px !important; }
+          .csCard-1 img { height:196px !important; }
+          .csCard-0 { transform:translateX(-50%) translateX(-98px) rotate(-6deg) !important; }
+          .csCard-2 { transform:translateX(-50%) translateX(98px) rotate(6deg) !important; }
           .csCard-1 { transform:translateX(-50%) !important; }
-          .csOverlay { padding:8px 8px 7px; }
-          .csLabel { font-size:6.5px; margin-bottom:2px; }
-          .csStat { font-size:9px; line-height:1.15; }
-          .csValue { font-size:8px; margin-top:2px; }
+          .csOverlay { padding:10px 10px 8px; }
+          .csLabel { font-size:7.5px; margin-bottom:3px; }
+          .csStat { font-size:11px; line-height:1.2; }
+          .csValue { font-size:9.5px; margin-top:2px; }
         }
 
         .wizLabel { font-family:'Poppins',Arial,sans-serif; font-size:13px; font-weight:800; letter-spacing:.04em; color:${BRAND.ink}; margin-bottom:10px; }
@@ -459,19 +459,8 @@ function App() {
         .wizSeg.active { background:${BRAND.ink}; }
       `}</style>
 
-      <div style={{ background: "#fff", padding: "26px 20px", textAlign: "center", borderTop: `2px solid ${BRAND.ink}`, borderBottom: `2px solid ${BRAND.ink}` }}>
-        <div style={{ maxWidth: 760, margin: "0 auto" }}>
-          <div style={{ fontFamily: "'Poppins', Arial, sans-serif", fontWeight: 800, fontSize: "clamp(22px, 3.6vw, 34px)", lineHeight: 1.25, color: BRAND.ink }}>
-            The Vacancy Cost Calculator
-          </div>
-          <div style={{ fontFamily: "'Poppins', Arial, sans-serif", fontWeight: 500, fontSize: "clamp(14px, 2vw, 17px)", lineHeight: 1.4, color: BRAND.muted, marginTop: 6 }}>
-            Find out what waiting to lease could cost you, then get your plan to start earlier.
-          </div>
-        </div>
-      </div>
-
       <div className="wrap">
-        <div className="eyebrow">Rez 3D · Developer Tool</div>
+        <img src="./rez3d-logo.png" alt="Rez 3D" style={{ height: 32, display: "block", marginBottom: 4 }} />
         <h1 className="h1">The Vacancy Cost Calculator</h1>
         <p className="sub">See what empty units could cost you, and what to have in place to start leasing before opening day.</p>
 
@@ -1019,7 +1008,7 @@ function PreLeasingPlan({ phases, calc }) {
                           target={isAnchor ? undefined : "_blank"}
                           rel={isAnchor ? undefined : "noopener noreferrer"}
                           onClick={isAnchor ? (e) => { e.preventDefault(); document.getElementById(s.link.url.slice(1))?.scrollIntoView({ behavior: "smooth", block: "start" }); } : undefined}
-                          style={{ display: "inline-block", marginTop: 10, fontFamily: "'Poppins',Arial,sans-serif", fontSize: 12.5, fontWeight: 800, color: PLAN_ACCENT, textDecoration: "none" }}
+                          style={{ display: "inline-flex", alignItems: "center", gap: 6, marginTop: 14, fontFamily: "'Poppins',Arial,sans-serif", fontSize: 14.5, fontWeight: 800, color: "#2B1B00", textDecoration: "none", background: PLAN_ACCENT, padding: "10px 18px", borderRadius: 999, boxShadow: "0 2px 8px rgba(232,169,74,0.35)" }}
                         >
                           {s.link.label} {isAnchor ? "↓" : "↗"}
                         </a>
