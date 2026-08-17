@@ -1,5 +1,48 @@
 <!doctype html>
 <html lang="en">
+  <!-- Google tag for Google Ads -->
+
+<script async src="
+
+www.googletagmanager.com
+https://www.googletagmanager.com/gtag/js?id=AW-18367156644"></script>
+<script>
+
+window.dataLayer = window.dataLayer || [];
+
+function gtag(){dataLayer.push(arguments);}
+
+gtag('js', new Date());
+
+gtag('config', 'AW-18367156644');
+
+
+
+function gtag_report_conversion(url) {
+
+var callback = function () {
+
+if (typeof(url) !== 'undefined') {
+
+window.location = url;
+
+}
+
+};
+
+gtag('event', 'conversion', {
+
+'send_to': 'AW-18367156644/dweeCP-k3-IcEKSjkrZE',
+
+'event_callback': callback
+
+});
+
+return false;
+
+}
+
+</script>
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -66,7 +109,19 @@ function notifyLead(f, calc) {
         "Units still needed": calc.needUnits,
         "Monthly cost of doing nothing": money(calc.emptyCostMo),
       }),
-    }).catch((e) => console.error("Lead notification failed:", e));
+ })
+
+.then((response) => response.json())
+
+.then((data) => {
+
+  if (data.success) gtag_report_conversion();
+
+  else console.error("Lead notification failed:", data);
+
+})
+
+.catch((e) => console.error("Lead notification failed:", e));
   } catch (e) {
     console.error("Lead notification failed:", e);
   }
