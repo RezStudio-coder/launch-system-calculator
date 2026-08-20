@@ -1,48 +1,5 @@
 <!doctype html>
 <html lang="en">
-  <!-- Google tag for Google Ads -->
-
-<script async src="
-
-www.googletagmanager.com
-https://www.googletagmanager.com/gtag/js?id=AW-18367156644"></script>
-<script>
-
-window.dataLayer = window.dataLayer || [];
-
-function gtag(){dataLayer.push(arguments);}
-
-gtag('js', new Date());
-
-gtag('config', 'AW-18367156644');
-
-
-
-function gtag_report_conversion(url) {
-
-var callback = function () {
-
-if (typeof(url) !== 'undefined') {
-
-window.location = url;
-
-}
-
-};
-
-gtag('event', 'conversion', {
-
-'send_to': 'AW-18367156644/dweeCP-k3-IcEKSjkrZE',
-
-'event_callback': callback
-
-});
-
-return false;
-
-}
-
-</script>
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -109,19 +66,7 @@ function notifyLead(f, calc) {
         "Units still needed": calc.needUnits,
         "Monthly cost of doing nothing": money(calc.emptyCostMo),
       }),
- })
-
-.then((response) => response.json())
-
-.then((data) => {
-
-  if (data.success) gtag_report_conversion();
-
-  else console.error("Lead notification failed:", data);
-
-})
-
-.catch((e) => console.error("Lead notification failed:", e));
+    }).catch((e) => console.error("Lead notification failed:", e));
   } catch (e) {
     console.error("Lead notification failed:", e);
   }
@@ -290,6 +235,26 @@ function monthsUntil(dateStr) {
 // returning a JPEG data URL usable with jsPDF's addImage. focusY (0-1) biases the crop
 // vertically — 0.5 is centered, higher values keep more of the bottom of the image
 // (useful for building renders where the entrance/signage sits low in the frame).
+// Loads a PNG as-is (no crop, no JPEG re-encode) so transparency survives — used for
+// the logo mark, unlike loadCoverImage's object-fit:cover crop meant for photo banners.
+// Downscaled to maxDim first: the source is print-res but only ever rendered at icon
+// size in the PDF, and canvas's PNG re-encode is uncompressed enough that skipping
+// this bloated a 145KB PDF to nearly 500KB for an 18pt-tall mark.
+function loadPngImage(src, maxDim) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => {
+      const scale = maxDim ? Math.min(1, maxDim / Math.max(img.naturalWidth, img.naturalHeight)) : 1;
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.round(img.naturalWidth * scale);
+      canvas.height = Math.round(img.naturalHeight * scale);
+      canvas.getContext("2d").drawImage(img, 0, 0, canvas.width, canvas.height);
+      resolve(canvas.toDataURL("image/png"));
+    };
+    img.onerror = reject;
+    img.src = src;
+  });
+}
 function loadCoverImage(src, targetW, targetH, focusY) {
   focusY = focusY === undefined ? 0.5 : focusY;
   return new Promise((resolve, reject) => {
@@ -647,8 +612,14 @@ function Results({ f, calc, onBack }) {
 
       // Cover band
       doc.setFillColor(...ink); doc.rect(0, coverY, W, 90, "F");
-      doc.setTextColor(...onDark); doc.setFont("Poppins", "bold"); doc.setFontSize(8);
-      doc.text("REZ 3D · DEVELOPER TOOL", M, coverY + 20);
+      let logoDataUrl = null;
+      try { logoDataUrl = await loadPngImage("./rez3d-logo-white.png", 72); } catch (e) { logoDataUrl = null; }
+      if (logoDataUrl) {
+        doc.addImage(logoDataUrl, "PNG", M, coverY + 6, 18, 18);
+      } else {
+        doc.setTextColor(...onDark); doc.setFont("Poppins", "bold"); doc.setFontSize(8);
+        doc.text("REZ 3D · DEVELOPER TOOL", M, coverY + 20);
+      }
       doc.setTextColor(...onDark); doc.setFont("Poppins", "bold"); doc.setFontSize(18);
       doc.text("The Vacancy Cost Calculator", M, coverY + 43);
       doc.setFont("Poppins", "normal"); doc.setFontSize(9); doc.setTextColor(...onDarkMuted);
