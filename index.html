@@ -453,6 +453,10 @@ function App() {
         .h1 { font-family: 'Poppins', Arial, sans-serif; text-transform: uppercase; font-size: clamp(28px, 4.6vw, 46px); line-height: 1.1; letter-spacing: -.01em; margin: 10px 0 8px; font-weight: 800; text-align: center; }
         .sub { font-family: 'Poppins', Arial, sans-serif; color: ${BRAND.muted}; font-size: 15px; max-width: 560px; line-height: 1.5; text-align: center; margin-left: auto; margin-right: auto; }
         .logo { margin-left: auto; margin-right: auto; }
+        .trustBullets { display: flex; flex-direction: column; align-items: center; gap: 8px; margin-top: 22px; }
+        .trustBullets div { font-family: 'Poppins', Arial, sans-serif; font-size: 14px; font-weight: 700; color: ${BRAND.ink}; text-align: center; }
+        @media (max-width:640px) { .trustBullets div { max-width: 280px; } }
+        .trustStar { color: ${PLAN_ACCENT}; margin-right: 2px; }
         .card { background: #fff; border: 1px solid ${BRAND.line}; border-radius: 4px; padding: 26px; }
         label { display:block; font-family:'Poppins',Arial,sans-serif; font-size:12px; letter-spacing:.06em; text-transform:uppercase; color:${BRAND.ink2}; font-weight:700; margin-bottom:6px; }
         input, select { width:100%; padding:12px 14px; border:1px solid ${BRAND.line}; border-radius:3px; font-size:15px; font-family:'Poppins',Arial,sans-serif; background:#fff; color:${BRAND.ink}; }
@@ -511,6 +515,13 @@ function App() {
         <p className="sub">See what empty units could cost you, and what to have in place to start leasing before opening day.</p>
 
         {step === 0 && <CaseStudyFan />}
+
+        {step === 0 && (
+          <div className="trustBullets">
+            <div><span className="trustStar">✦</span> Takes 30 seconds. No obligation.</div>
+            <div><span className="trustStar">✦</span> 1,000+ successful projects across North America.</div>
+          </div>
+        )}
 
         {step === 0 && (
           <div className="card" style={{ marginTop: 26 }}>
