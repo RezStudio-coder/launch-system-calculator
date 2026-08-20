@@ -450,8 +450,9 @@ function App() {
         * { box-sizing: border-box; }
         .wrap { max-width: 920px; margin: 0 auto; padding: 32px 20px 80px; }
         .eyebrow { font-family: 'Poppins', Arial, sans-serif; letter-spacing: .2em; text-transform: uppercase; font-size: 12px; color: ${BRAND.muted}; font-weight: 600; }
-        .h1 { font-family: 'Poppins', Arial, sans-serif; text-transform: uppercase; font-size: clamp(28px, 4.6vw, 46px); line-height: 1.1; letter-spacing: -.01em; margin: 10px 0 8px; font-weight: 800; }
-        .sub { font-family: 'Poppins', Arial, sans-serif; color: ${BRAND.muted}; font-size: 15px; max-width: 560px; line-height: 1.5; }
+        .h1 { font-family: 'Poppins', Arial, sans-serif; text-transform: uppercase; font-size: clamp(28px, 4.6vw, 46px); line-height: 1.1; letter-spacing: -.01em; margin: 10px 0 8px; font-weight: 800; text-align: center; }
+        .sub { font-family: 'Poppins', Arial, sans-serif; color: ${BRAND.muted}; font-size: 15px; max-width: 560px; line-height: 1.5; text-align: center; margin-left: auto; margin-right: auto; }
+        .logo { margin-left: auto; margin-right: auto; }
         .card { background: #fff; border: 1px solid ${BRAND.line}; border-radius: 4px; padding: 26px; }
         label { display:block; font-family:'Poppins',Arial,sans-serif; font-size:12px; letter-spacing:.06em; text-transform:uppercase; color:${BRAND.ink2}; font-weight:700; margin-bottom:6px; }
         input, select { width:100%; padding:12px 14px; border:1px solid ${BRAND.line}; border-radius:3px; font-size:15px; font-family:'Poppins',Arial,sans-serif; background:#fff; color:${BRAND.ink}; }
@@ -505,7 +506,7 @@ function App() {
       `}</style>
 
       <div className="wrap">
-        <img src="./rez3d-logo.png" alt="Rez 3D" style={{ height: 32, display: "block", marginBottom: 4 }} />
+        <img className="logo" src="./rez3d-logo.png" alt="Rez 3D" style={{ height: 32, display: "block", marginBottom: 4 }} />
         <h1 className="h1">The Vacancy Cost Calculator</h1>
         <p className="sub">See what empty units could cost you, and what to have in place to start leasing before opening day.</p>
 
@@ -704,9 +705,10 @@ function Results({ f, calc, onBack }) {
       const runwaySub = calc.needUnits > 0
         ? `Slow: ${slow.months} mo · Hot: ${hot.months} mo`
         : (aheadOfBenchmark ? "Already past benchmark" : `${calc.vacantUnits} unit${calc.vacantUnits === 1 ? "" : "s"} still ${calc.isRental ? "unleased" : "unsold"}`);
+      const runwayLabel = calc.noRunway ? "Runway to full (estimated)" : `Runway to ${Math.round(calc.target * 100)}% benchmark (est.)`;
       const potentialStats = [
         [`${slow.rate}–${hot.rate} units/mo`, "Expected leasing pace", `Typically ~${steady.rate}/mo at a steady pace`, null],
-        [runwayValue, "Runway to full (estimated)", runwaySub, null],
+        [runwayValue, runwayLabel, runwaySub, null],
         [
           money(calc.gross),
           calc.isRental ? "Annual rent roll at full occupancy" : "Total value at full sell-out",
@@ -839,7 +841,11 @@ function Results({ f, calc, onBack }) {
       <h2 style={{ fontSize: 24, fontWeight: 700, margin: "10px 0 6px", fontFamily: "'Poppins', Arial, sans-serif", textAlign: "center" }}>{roadmapTitle}</h2>
       <p style={{ fontFamily: "'Poppins',Arial,sans-serif", fontSize: 14, color: BRAND.muted, marginTop: 0, marginBottom: 4, textAlign: "center" }}>
         {calc.needUnits > 0 ? (
-          <>Fill your remaining units at <b style={{ color: BRAND.ink }}>{slow.rate}–{hot.rate}/mo</b>, reaching full occupancy in <b style={{ color: BRAND.ink }}>~{steady.months} mo</b>, worth <b style={{ color: BRAND.ink }}>{money(calc.gross)}</b> in {calc.isRental ? "annual rent" : "total sales"}.</>
+          calc.noRunway ? (
+            <>Fill your remaining units at <b style={{ color: BRAND.ink }}>{slow.rate}–{hot.rate}/mo</b>, reaching full occupancy in <b style={{ color: BRAND.ink }}>~{steady.months} mo</b>, worth <b style={{ color: BRAND.ink }}>{money(calc.gross)}</b> in {calc.isRental ? "annual rent" : "total sales"}.</>
+          ) : (
+            <>Fill your remaining units at <b style={{ color: BRAND.ink }}>{slow.rate}–{hot.rate}/mo</b>, hitting your {Math.round(calc.target * 100)}% pre-{calc.isRental ? "leasing" : "selling"} benchmark in <b style={{ color: BRAND.ink }}>~{steady.months} mo</b>, worth <b style={{ color: BRAND.ink }}>{money(calc.gross)}</b> in {calc.isRental ? "annual rent" : "total sales"} once fully {calc.isRental ? "leased" : "sold"}.</>
+          )
         ) : aheadOfBenchmark ? (
           <>You're already ahead of pace on pre-{calc.isRental ? "leasing" : "selling"}, worth <b style={{ color: BRAND.ink }}>{money(calc.gross)}</b> in {calc.isRental ? "annual rent" : "total sales"} once every unit is {calc.isRental ? "leased" : "sold"}.</>
         ) : (
