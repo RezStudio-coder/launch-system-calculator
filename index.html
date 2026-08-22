@@ -22,7 +22,7 @@
 </script>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>The Vacancy Cost Calculator | Rez 3D</title>
+<title>How Top Developers Pre-Lease | Rez 3D</title>
 
 <!-- Brand font, matching acquisition.com: Poppins for everything, hierarchy via weight -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -99,16 +99,20 @@ function notifyLead(f, calc) {
 
 // Matches rez3drenders.ca: black/white monochrome, no color accent —
 // hierarchy comes from weight, tracking and grayscale contrast, not hue.
+// Brand kit values (blue swatch #9CA5BB excluded per brand guidelines — no color accent
+// beyond the warm brown). accent/accentDeep map to the kit's brown; ink/paper are true
+// black rather than the kit's dark-brown swatch (#47403A reads as chocolate at full size,
+// not black, once you're looking at more than a thumbnail).
 const BRAND = {
   ink: "#111111",        // near-black — matches the site's dark section background
   ink2: "#333333",       // dark grey — secondary text, labels
-  paper: "#F3F3F3",      // light grey — page background, matches the site's light sections
-  line: "#DDDDDD",       // hairline borders
-  accent: "#111111",     // near-black — primary CTA / emphasis (site has no color accent)
-  accentDeep: "#333333", // hover state
+  paper: "#111111",      // near-black — page background is dark; content cards stay white on top of it
+  line: "#D6CCC0",       // warm hairline borders, derived from the cream
+  accent: "#7E6142",     // brand brown (kit) — primary CTA / emphasis
+  accentDeep: "#5F4A32", // darker brown — hover state
   onDark: "#FFFFFF",     // white — text/fills on dark (ink) backgrounds
-  onDarkMuted: "#CCCCCC",// light grey — secondary text on dark backgrounds
-  muted: "#707070",      // mid grey — muted body text
+  onDarkMuted: "#D9D2C8",// warm light tone — secondary text on dark backgrounds
+  muted: "#8A8175",      // warm mid tone — muted body text
 };
 
 // Larger projects typically show more distinct floor plans, so render counts scale with
@@ -445,16 +449,16 @@ function App() {
   const ready = f.name && f.company && f.email && f.city && f.units && f.price && f.opening && f.presold;
 
   return (
-    <div style={{ minHeight: "100vh", background: BRAND.paper, color: BRAND.ink, fontFamily: "'Poppins', Arial, sans-serif" }}>
+    <div style={{ minHeight: "100vh", background: BRAND.paper, color: BRAND.onDark, fontFamily: "'Poppins', Arial, sans-serif" }}>
       <style>{`
         * { box-sizing: border-box; }
         .wrap { max-width: 920px; margin: 0 auto; padding: 32px 20px 80px; }
-        .eyebrow { font-family: 'Poppins', Arial, sans-serif; letter-spacing: .2em; text-transform: uppercase; font-size: 12px; color: ${BRAND.muted}; font-weight: 600; }
+        .eyebrow { font-family: 'Poppins', Arial, sans-serif; letter-spacing: .2em; text-transform: uppercase; font-size: 12px; color: ${BRAND.onDarkMuted}; font-weight: 600; }
         .h1 { font-family: 'Poppins', Arial, sans-serif; text-transform: uppercase; font-size: clamp(28px, 4.6vw, 46px); line-height: 1.1; letter-spacing: -.01em; margin: 10px 0 8px; font-weight: 800; text-align: center; }
-        .sub { font-family: 'Poppins', Arial, sans-serif; color: ${BRAND.muted}; font-size: 15px; max-width: 560px; line-height: 1.5; text-align: center; margin-left: auto; margin-right: auto; }
+        .sub { font-family: 'Poppins', Arial, sans-serif; color: ${BRAND.onDarkMuted}; font-size: 15px; max-width: 560px; line-height: 1.5; text-align: center; margin-left: auto; margin-right: auto; }
         .logo { margin-left: auto; margin-right: auto; }
         .trustBullets { display: flex; flex-direction: column; align-items: center; gap: 8px; margin-top: 22px; }
-        .trustBullets div { font-family: 'Poppins', Arial, sans-serif; font-size: 14px; font-weight: 700; color: ${BRAND.ink}; text-align: center; }
+        .trustBullets div { font-family: 'Poppins', Arial, sans-serif; font-size: 14px; font-weight: 700; color: ${BRAND.onDark}; text-align: center; }
         @media (max-width:640px) { .trustBullets div { max-width: 280px; } }
         .trustStar { color: ${PLAN_ACCENT}; margin-right: 2px; }
         .card { background: #fff; border: 1px solid ${BRAND.line}; border-radius: 4px; padding: 26px; }
@@ -510,9 +514,9 @@ function App() {
       `}</style>
 
       <div className="wrap">
-        <img className="logo" src="./rez3d-logo.png" alt="Rez 3D" style={{ height: 32, display: "block", marginBottom: 4 }} />
-        <h1 className="h1">The Vacancy Cost Calculator</h1>
-        <p className="sub">See what empty units could cost you, and what to have in place to start leasing before opening day.</p>
+        <img className="logo" src="./rez3d-logo-white.png" alt="Rez 3D" style={{ height: 32, display: "block", marginBottom: 4 }} />
+        <h1 className="h1">How Top Developers Pre-Lease</h1>
+        <p className="sub">The Monte hit 70% preleased before opening. Get your free numbers and a tailored pre-leasing plan in 30 seconds.</p>
 
         {step === 0 && <CaseStudyFan />}
 
@@ -850,17 +854,17 @@ function Results({ f, calc, onBack }) {
       <SectionLabel sub="What needs to be in place before opening day, and when to build it.">Your Pre-Leasing Plan</SectionLabel>
 
       <h2 style={{ fontSize: 24, fontWeight: 700, margin: "10px 0 6px", fontFamily: "'Poppins', Arial, sans-serif", textAlign: "center" }}>{roadmapTitle}</h2>
-      <p style={{ fontFamily: "'Poppins',Arial,sans-serif", fontSize: 14, color: BRAND.muted, marginTop: 0, marginBottom: 4, textAlign: "center" }}>
+      <p style={{ fontFamily: "'Poppins',Arial,sans-serif", fontSize: 14, color: BRAND.onDarkMuted, marginTop: 0, marginBottom: 4, textAlign: "center" }}>
         {calc.needUnits > 0 ? (
           calc.noRunway ? (
-            <>Fill your remaining units at <b style={{ color: BRAND.ink }}>{slow.rate}–{hot.rate}/mo</b>, reaching full occupancy in <b style={{ color: BRAND.ink }}>~{steady.months} mo</b>, worth <b style={{ color: BRAND.ink }}>{money(calc.gross)}</b> in {calc.isRental ? "annual rent" : "total sales"}.</>
+            <>Fill your remaining units at <b style={{ color: BRAND.onDark }}>{slow.rate}–{hot.rate}/mo</b>, reaching full occupancy in <b style={{ color: BRAND.onDark }}>~{steady.months} mo</b>, worth <b style={{ color: BRAND.onDark }}>{money(calc.gross)}</b> in {calc.isRental ? "annual rent" : "total sales"}.</>
           ) : (
-            <>Fill your remaining units at <b style={{ color: BRAND.ink }}>{slow.rate}–{hot.rate}/mo</b>, hitting your {Math.round(calc.target * 100)}% pre-{calc.isRental ? "leasing" : "selling"} benchmark in <b style={{ color: BRAND.ink }}>~{steady.months} mo</b>, worth <b style={{ color: BRAND.ink }}>{money(calc.gross)}</b> in {calc.isRental ? "annual rent" : "total sales"} once fully {calc.isRental ? "leased" : "sold"}.</>
+            <>Fill your remaining units at <b style={{ color: BRAND.onDark }}>{slow.rate}–{hot.rate}/mo</b>, hitting your {Math.round(calc.target * 100)}% pre-{calc.isRental ? "leasing" : "selling"} benchmark in <b style={{ color: BRAND.onDark }}>~{steady.months} mo</b>, worth <b style={{ color: BRAND.onDark }}>{money(calc.gross)}</b> in {calc.isRental ? "annual rent" : "total sales"} once fully {calc.isRental ? "leased" : "sold"}.</>
           )
         ) : aheadOfBenchmark ? (
-          <>You're already ahead of pace on pre-{calc.isRental ? "leasing" : "selling"}, worth <b style={{ color: BRAND.ink }}>{money(calc.gross)}</b> in {calc.isRental ? "annual rent" : "total sales"} once every unit is {calc.isRental ? "leased" : "sold"}.</>
+          <>You're already ahead of pace on pre-{calc.isRental ? "leasing" : "selling"}, worth <b style={{ color: BRAND.onDark }}>{money(calc.gross)}</b> in {calc.isRental ? "annual rent" : "total sales"} once every unit is {calc.isRental ? "leased" : "sold"}.</>
         ) : (
-          <>Opening is close with <b style={{ color: BRAND.ink }}>{calc.vacantUnits} unit{calc.vacantUnits === 1 ? "" : "s"}</b> still {calc.isRental ? "unleased" : "unsold"} — there's barely any runway left to hit a pre-{calc.isRental ? "leasing" : "selling"} benchmark, worth <b style={{ color: BRAND.ink }}>{money(calc.gross)}</b> in {calc.isRental ? "annual rent" : "total sales"} once it's full.</>
+          <>Opening is close with <b style={{ color: BRAND.onDark }}>{calc.vacantUnits} unit{calc.vacantUnits === 1 ? "" : "s"}</b> still {calc.isRental ? "unleased" : "unsold"} — there's barely any runway left to hit a pre-{calc.isRental ? "leasing" : "selling"} benchmark, worth <b style={{ color: BRAND.onDark }}>{money(calc.gross)}</b> in {calc.isRental ? "annual rent" : "total sales"} once it's full.</>
         )}
       </p>
       <PreLeasingPlan phases={PHASES} calc={calc} />
@@ -876,10 +880,10 @@ function Results({ f, calc, onBack }) {
       </div>
 
       <div style={{ display: "flex", gap: 12, marginTop: 26, flexWrap: "wrap" }}>
-        <button className="btn btnPrimary" onClick={downloadPDF}>
+        <button className="btn" style={{ background: PLAN_ACCENT, color: "#2B1B00" }} onClick={downloadPDF}>
           {pdfState === "working" ? "Generating…" : pdfState === "done" ? "Downloaded ✓ Download again" : "Download my tailored PDF"}
         </button>
-        <button className="btn btnGhost" onClick={onBack}>← Edit my answers</button>
+        <button className="btn" style={{ background: "transparent", color: BRAND.onDark, border: `1px solid ${BRAND.onDarkMuted}` }} onClick={onBack}>← Edit my answers</button>
       </div>
       {pdfState === "error" && <p style={{ color: "#b23", fontFamily: "sans-serif", fontSize: 13, marginTop: 10 }}>PDF failed to build. Try again, or check the console.</p>}
     </div>
@@ -892,18 +896,19 @@ function LeasingToolDemo({ calc }) {
   return (
     <div id="live-demo" style={{ marginTop: 40, scrollMarginTop: 20 }}>
       <div style={{ textAlign: "center", marginBottom: 4 }}>
-        <span style={{ fontFamily: "'Poppins',Arial,sans-serif", fontSize: 16, letterSpacing: ".2em", textTransform: "uppercase", color: BRAND.accentDeep, fontWeight: 800 }}>
+        <span style={{ fontFamily: "'Poppins',Arial,sans-serif", fontSize: 16, letterSpacing: ".2em", textTransform: "uppercase", color: PLAN_ACCENT, fontWeight: 800 }}>
           A live plan selector, in action
         </span>
       </div>
       <h2 style={{ fontSize: 24, fontWeight: 700, margin: "0 0 4px", textAlign: "center", fontFamily: "'Poppins', Arial, sans-serif" }}>This is Step 06 of your plan, already built</h2>
-      <p style={{ fontFamily: "'Poppins',Arial,sans-serif", fontSize: 14, color: BRAND.muted, textAlign: "center", marginTop: 0, marginBottom: 18, maxWidth: 560, marginLeft: "auto", marginRight: "auto" }}>
+      <p style={{ fontFamily: "'Poppins',Arial,sans-serif", fontSize: 14, color: BRAND.onDarkMuted, textAlign: "center", marginTop: 0, marginBottom: 18, maxWidth: 560, marginLeft: "auto", marginRight: "auto" }}>
         This example belongs to a different project. Yours would work the same way, showing your actual {calc.units} units live, filterable and ready for buyers to browse.
       </p>
 
       <div style={{ border: `1px solid ${BRAND.line}`, borderRadius: 8, overflow: "hidden", background: "#fff", boxShadow: "0 8px 30px rgba(14,27,44,0.08)" }}>
-        {/* Browser chrome */}
-        <div style={{ background: BRAND.paper, borderBottom: `1px solid ${BRAND.line}`, padding: "10px 14px", display: "flex", alignItems: "center", gap: 8 }}>
+        {/* Browser chrome — deliberately a neutral light grey, not the page's dark theme,
+            since it's meant to read as a generic browser toolbar around the demo */}
+        <div style={{ background: "#F3F3F3", borderBottom: `1px solid ${BRAND.line}`, padding: "10px 14px", display: "flex", alignItems: "center", gap: 8 }}>
           <span style={{ width: 10, height: 10, borderRadius: "50%", background: "#E4715B" }} />
           <span style={{ width: 10, height: 10, borderRadius: "50%", background: "#E7B14C" }} />
           <span style={{ width: 10, height: 10, borderRadius: "50%", background: "#6DBE72" }} />
@@ -920,7 +925,7 @@ function LeasingToolDemo({ calc }) {
         />
 
         {/* Powered by note */}
-        <div style={{ borderTop: `1px solid ${BRAND.line}`, padding: "9px 14px", textAlign: "center", background: BRAND.paper }}>
+        <div style={{ borderTop: `1px solid ${BRAND.line}`, padding: "9px 14px", textAlign: "center", background: "#F3F3F3" }}>
           <span style={{ fontFamily: "'Poppins',Arial,sans-serif", fontSize: 11, letterSpacing: ".04em", color: BRAND.muted }}>
             Powered by Planpoint
           </span>
@@ -932,9 +937,9 @@ function LeasingToolDemo({ calc }) {
 
 function SectionLabel({ children, sub }) {
   return (
-    <div style={{ marginTop: 40, marginBottom: 16, paddingBottom: 10, borderBottom: `2px solid ${BRAND.ink}` }}>
-      <div style={{ fontFamily: "'Poppins',Arial,sans-serif", fontSize: 13, fontWeight: 800, letterSpacing: ".1em", textTransform: "uppercase", color: BRAND.ink }}>{children}</div>
-      {sub && <div style={{ fontFamily: "'Poppins',Arial,sans-serif", fontSize: 14, color: BRAND.muted, marginTop: 6 }}>{sub}</div>}
+    <div style={{ marginTop: 40, marginBottom: 16, paddingBottom: 10, borderBottom: "2px solid rgba(255,255,255,0.18)" }}>
+      <div style={{ fontFamily: "'Poppins',Arial,sans-serif", fontSize: 13, fontWeight: 800, letterSpacing: ".1em", textTransform: "uppercase", color: BRAND.onDark }}>{children}</div>
+      {sub && <div style={{ fontFamily: "'Poppins',Arial,sans-serif", fontSize: 14, color: BRAND.onDarkMuted, marginTop: 6 }}>{sub}</div>}
     </div>
   );
 }
@@ -1026,7 +1031,9 @@ function FitWidth({ children }) {
 // whose unit count should match the lead's actual project, not a placeholder number.
 // A step's d can be a plain string (renders as a paragraph) or an array (renders as
 // bullets) — Phase 1 uses bullets so its per-shot breakdown reads as a checklist.
-const PLAN_ACCENT = "#E8A94A";
+// A lighter tint of BRAND.accent (#7E6142), not a new hue — the base brown doesn't have
+// enough contrast against the dark ink background to pop as a badge/pill/star accent.
+const PLAN_ACCENT = "#C9A876";
 function PreLeasingPlan({ phases, calc }) {
   return (
     <div style={{ background: BRAND.ink, borderRadius: 8, padding: "28px 20px", marginTop: 16 }}>
@@ -1049,7 +1056,7 @@ function PreLeasingPlan({ phases, calc }) {
                   <div key={s.n} style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.16)", borderRadius: 6, padding: "14px 16px", boxShadow: "0 1px 0 rgba(255,255,255,0.04) inset" }}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 10, flexWrap: "wrap" }}>
                       <span style={{ fontFamily: "'Poppins',Arial,sans-serif", fontWeight: 800, fontSize: 17, color: "#fff" }}>{s.n} · {s.t}</span>
-                      <span style={{ fontFamily: "'Poppins',Arial,sans-serif", fontWeight: 800, fontSize: 15, color: PLAN_ACCENT, whiteSpace: "nowrap", background: "rgba(232,169,74,0.16)", padding: "4px 10px", borderRadius: 999 }}>
+                      <span style={{ fontFamily: "'Poppins',Arial,sans-serif", fontWeight: 800, fontSize: 15, color: PLAN_ACCENT, whiteSpace: "nowrap", background: "rgba(201,168,118,0.16)", padding: "4px 10px", borderRadius: 999 }}>
                         {typeof s.spec === "function" ? s.spec(calc) : s.spec}
                       </span>
                     </div>
@@ -1076,7 +1083,7 @@ function PreLeasingPlan({ phases, calc }) {
                           target={isAnchor ? undefined : "_blank"}
                           rel={isAnchor ? undefined : "noopener noreferrer"}
                           onClick={isAnchor ? (e) => { e.preventDefault(); document.getElementById(s.link.url.slice(1))?.scrollIntoView({ behavior: "smooth", block: "start" }); } : undefined}
-                          style={{ display: "inline-flex", alignItems: "center", gap: 6, marginTop: 14, fontFamily: "'Poppins',Arial,sans-serif", fontSize: 14.5, fontWeight: 800, color: "#2B1B00", textDecoration: "none", background: PLAN_ACCENT, padding: "10px 18px", borderRadius: 999, boxShadow: "0 2px 8px rgba(232,169,74,0.35)" }}
+                          style={{ display: "inline-flex", alignItems: "center", gap: 6, marginTop: 14, fontFamily: "'Poppins',Arial,sans-serif", fontSize: 14.5, fontWeight: 800, color: "#2B1B00", textDecoration: "none", background: PLAN_ACCENT, padding: "10px 18px", borderRadius: 999, boxShadow: "0 2px 8px rgba(201,168,118,0.35)" }}
                         >
                           {s.link.label} {isAnchor ? "↓" : "↗"}
                         </a>
@@ -1089,12 +1096,12 @@ function PreLeasingPlan({ phases, calc }) {
           ))}
         </div>
       </FitWidth>
-      <div style={{ background: "rgba(232,169,74,0.14)", border: `1px solid rgba(232,169,74,0.35)`, borderRadius: 6, padding: "16px 18px", marginTop: 22, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
+      <div style={{ background: "rgba(201,168,118,0.14)", border: `1px solid rgba(201,168,118,0.35)`, borderRadius: 6, padding: "16px 18px", marginTop: 22, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
         <div>
-          <div style={{ fontFamily: "'Poppins',Arial,sans-serif", fontWeight: 700, fontSize: 14, color: "#F0C775" }}>
+          <div style={{ fontFamily: "'Poppins',Arial,sans-serif", fontWeight: 700, fontSize: 14, color: "#DDC49F" }}>
             That's the full recipe: {TOTAL_DELIVERABLES} deliverables, in order.
           </div>
-          <div style={{ fontFamily: "'Poppins',Arial,sans-serif", fontSize: 12.5, color: "rgba(240,199,117,0.85)", marginTop: 2 }}>
+          <div style={{ fontFamily: "'Poppins',Arial,sans-serif", fontSize: 12.5, color: "rgba(221,196,159,0.85)", marginTop: 2 }}>
             We produce every piece for you, in this exact sequence.
           </div>
         </div>
