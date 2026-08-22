@@ -463,7 +463,7 @@ function App() {
         .trustStar { color: ${PLAN_ACCENT}; margin-right: 2px; }
         .card { background: #fff; border: 1px solid ${BRAND.line}; border-radius: 4px; padding: 26px; }
         label { display:block; font-family:'Poppins',Arial,sans-serif; font-size:12px; letter-spacing:.06em; text-transform:uppercase; color:${BRAND.ink2}; font-weight:700; margin-bottom:6px; }
-        input, select { width:100%; padding:12px 14px; border:1px solid ${BRAND.line}; border-radius:3px; font-size:15px; font-family:'Poppins',Arial,sans-serif; background:#fff; color:${BRAND.ink}; }
+        input, select { width:100%; min-width:0; padding:12px 14px; border:1px solid ${BRAND.line}; border-radius:3px; font-size:15px; font-family:'Poppins',Arial,sans-serif; background:#fff; color:${BRAND.ink}; }
         input:focus, select:focus { outline:2px solid ${BRAND.ink}; outline-offset:0; border-color:${BRAND.ink}; }
         .grid2 { display:grid; grid-template-columns:repeat(auto-fit, minmax(150px, 1fr)); gap:12px; }
         .grid3 { display:grid; grid-template-columns:repeat(auto-fit, minmax(150px, 1fr)); gap:12px; }
@@ -493,6 +493,7 @@ function App() {
         .csStat { font-family:'Poppins',Arial,sans-serif; text-transform:uppercase; font-size:13px; font-weight:800; color:#fff; line-height:1.25; }
         .csValue { font-family:'Poppins',Arial,sans-serif; font-size:11.5px; font-weight:700; color:#fff; margin-top:3px; }
         @media (max-width:640px) {
+          .ctaRow { justify-content: center; }
           .csFan { height:255px; margin:22px 0 14px; }
           .csCard-0, .csCard-2 { width:165px !important; }
           .csCard-0 img, .csCard-2 img { height:150px !important; }
@@ -879,7 +880,7 @@ function Results({ f, calc, onBack }) {
         </p>
       </div>
 
-      <div style={{ display: "flex", gap: 12, marginTop: 26, flexWrap: "wrap" }}>
+      <div className="ctaRow" style={{ display: "flex", gap: 12, marginTop: 26, flexWrap: "wrap" }}>
         <button className="btn" style={{ background: PLAN_ACCENT, color: "#2B1B00" }} onClick={downloadPDF}>
           {pdfState === "working" ? "Generating…" : pdfState === "done" ? "Downloaded ✓ Download again" : "Download my tailored PDF"}
         </button>
